@@ -249,6 +249,8 @@ class SecurityBot(discord.Client):
         self.adv_lock_state: dict = {}
         # advanced lockdown status: guild_id → bool (is active)
         self.adv_lock_active: set = set()
+        # Webhook cache: guild_id → {channel_id: webhook_url}
+        self.webhook_cache: dict  = defaultdict(dict)
         # anti-join flood tracker: guild_id → [timestamp, ...]
         self.join_tracker: dict   = defaultdict(list)
         # ── guard: member_id ที่บอทกำลัง quarantine อยู่ → ป้องกัน on_member_update loop
@@ -1118,7 +1120,7 @@ async def bot_log(guild: discord.Guild, action: str, detail: str,
     em.set_footer(text=f"Security Bot • Guild: {guild.id} • {ts_full}")
     em.timestamp = now_dt
     try:
-        await ch.send(embed=em)
+        await _send_embed_via_webhook(ch, em)
     except Exception as e:
         log.warning(f"[bot_log] ส่งไม่ได้: {e}")
 
@@ -1469,6 +1471,55 @@ async def cleanup_tokens():
 #    ใส่ไว้ใน category "SECURITY LOGS" (สร้างถ้ายังไม่มี)
 #    ปิดไม่ให้ @everyone อ่านหรือส่งข้อความ
 # ══════════════════════════════════════════════════════════════════
+async def _get_or_create_webhook(ch: discord.TextChannel) -> str | None:
+    """ดึง Webhook URL ของห้องนั้น ถ้าไม่มีให้สร้างใหม่ (cache ใน bot.webhook_cache)"""
+    guild_id = ch.guild.id
+    ch_id    = ch.id
+    # ตรวจ cache ก่อน
+    cached = bot.webhook_cache[guild_id].get(ch_id)
+    if cached:
+        return cached
+    try:
+        hooks = await ch.webhooks()
+        wh = discord.utils.get(hooks, name="Security Bot Log")
+        if not wh:
+            wh = await ch.create_webhook(
+                name="Security Bot Log",
+                reason="Security Bot: สร้าง Webhook สำหรับส่ง log",
+            )
+        bot.webhook_cache[guild_id][ch_id] = wh.url
+        return wh.url
+    except Exception as e:
+        log.warning(f"[webhook] สร้าง/ดึง webhook ไม่ได้ ({ch.name}): {e}")
+        return None
+
+async def _send_embed_via_webhook(ch: discord.TextChannel, embed: discord.Embed) -> bool:
+    """ส่ง embed ผ่าน Webhook — fallback เป็น ch.send() ถ้า webhook ไม่ได้"""
+    url = await _get_or_create_webhook(ch)
+    if url:
+        try:
+            import aiohttp
+            payload = {
+                "username": "Security Bot",
+                "avatar_url": str(bot.user.display_avatar.url) if bot.user else None,
+                "embeds": [embed.to_dict()],
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as resp:
+                    if resp.status in (200, 204):
+                        return True
+                    if resp.status == 404:  # webhook ถูกลบ ล้าง cache
+                        bot.webhook_cache[ch.guild.id].pop(ch.id, None)
+        except Exception as e:
+            log.warning(f"[webhook] ส่งไม่ได้ ({ch.name}): {e}")
+    # fallback: ส่งแบบปกติ
+    try:
+        await ch.send(embed=embed)
+        return True
+    except Exception as e:
+        log.warning(f"[send_log] fallback ส่งไม่ได้ ({ch.name}): {e}")
+        return False
+
 async def send_log(guild: discord.Guild, embed: discord.Embed, log_type: str = None):
     cfg = get_cfg(guild.id)
     channels_to_send = []
@@ -1486,10 +1537,11 @@ async def send_log(guild: discord.Guild, embed: discord.Embed, log_type: str = N
     if not channels_to_send:
         return
     embed.timestamp = datetime.now(timezone.utc)
-    # ส่งทุกห้องพร้อมกัน ไม่บล็อก caller
     async def _do_send():
-        await asyncio.gather(*[ch.send(embed=embed) for ch in channels_to_send],
-                             return_exceptions=True)
+        await asyncio.gather(
+            *[_send_embed_via_webhook(ch, embed) for ch in channels_to_send],
+            return_exceptions=True,
+        )
     asyncio.create_task(_do_send())
 
 async def create_log_channel(guild: discord.Guild, log_type: str) -> discord.TextChannel | None:
