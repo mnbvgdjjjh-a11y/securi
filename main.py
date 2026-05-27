@@ -1469,11 +1469,13 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
     if bot.user and actor.id == bot.user.id:
         return
     member = guild.get_member(actor.id)
+    # [Speed] ไม่ยิง fetch_member() แบบ HTTP (ช้า ~200-500ms) เพราะ on_audit_log_entry_create
+    # ส่ง actor มาจาก Gateway cache อยู่แล้ว ถ้า cache miss ให้ใช้ actor โดยตรงแทน
     if member is None:
-        try:
-            member = await guild.fetch_member(actor.id)
-        except Exception:
-            return
+        if isinstance(actor, discord.Member):
+            member = actor
+        else:
+            return  # actor เป็น User ที่ออกจาก server แล้ว ข้ามได้เลย
     cfg = get_cfg(guild.id)
     feat = cfg.get(feature_key, {})
     if not feat.get("enabled"):
@@ -1511,7 +1513,8 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
                 color=0xa855f7,
             )
             em.set_footer(text=f"Feature: {feature_key} | AdvancedMode ON")
-            await send_log(guild, em)
+            # [Speed] ใช้ create_task แทน await เพื่อไม่ block event loop
+            asyncio.create_task(send_log(guild, em))
         else:
             punishment = feat.get("punishment", "ban")
             timeout_sec = feat.get("timeout_duration") if punishment == "timeout" else None
@@ -2305,13 +2308,8 @@ async def on_member_update(before: discord.Member, after: discord.Member):
         em.add_field(name="สมาชิก", value=f"{after.mention} ({after})", inline=False)
         if added:   em.add_field(name="ได้รับยศ", value=" ".join(r.mention for r in added),   inline=False)
         if removed: em.add_field(name="ถูกถอดยศ", value=" ".join(r.mention for r in removed), inline=False)
-        async def _audit_log_who():
-            try:
-                async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
-                    em.add_field(name="โดย", value=str(entry.user), inline=True)
-            except Exception:
-                pass
-        asyncio.create_task(_audit_log_who())
+        # [Speed] ลบ audit_logs HTTP query ออก — ข้อมูล "โดย" มีใน on_audit_log_entry_create อยู่แล้ว
+        # ป้องกัน HTTP round-trip ~200-500ms ต่อ event
         await send_log(guild, em, "role_update")
 
     if before.nick != after.nick:
@@ -2446,9 +2444,16 @@ async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
                 color=0xa855f7,
             )
             em.set_footer(text=f"Feature: {feature_key} | Actor: {actor}")
-            await send_log(guild, em)
+            # [Speed] ใช้ create_task ไม่ block event loop
+            asyncio.create_task(send_log(guild, em))
         else:
-            await check_feature(guild, actor, feature_key, label)
+            # [Speed] ใช้ create_task แทน await ทำให้ on_audit_log_entry_create return ทันที
+            # check_feature ทำงานต่อใน background โดยไม่ block Gateway event ถัดไป
+            asyncio.create_task(check_feature(guild, actor, feature_key, label))
+
+        # ── Voice Abuse: ส่ง entry ไปจัดการโดยตรง ไม่ต้องยิง audit_logs ซ้ำ ──
+        if entry.action in VOICE_ABUSE_ACTIONS:
+            asyncio.create_task(_handle_voice_abuse_entry(guild, actor, entry))
 
         # ── BIE: บันทึกและวิเคราะห์ทุก action ──────────────────────
         bie_ak = {
@@ -2483,52 +2488,51 @@ VOICE_ABUSE_ACTIONS = {
 
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    guild = member.guild
-    cfg   = get_cfg(guild.id)
-    va    = cfg.get("voiceabuse", {})
+    # [Speed] ย้ายการตรวจ voice abuse ไปอยู่ใน on_audit_log_entry_create แทน
+    # ฟังก์ชันนี้ยังคงไว้เพื่อ future use (เช่น log voice join/leave ทั่วไป)
+    pass
+
+
+async def _handle_voice_abuse_entry(guild: discord.Guild, actor: discord.Member | discord.User, entry: discord.AuditLogEntry):
+    """[Speed] ตรวจ Voice Abuse จาก audit log entry โดยตรง ไม่ต้อง HTTP query ซ้ำ"""
+    cfg = get_cfg(guild.id)
+    va  = cfg.get("voiceabuse", {})
     if not va.get("enabled"):
         return
-    async def _check():
-        try:
-            async for entry in guild.audit_logs(limit=1):
-                if entry.action not in VOICE_ABUSE_ACTIONS:
-                    return
-                actor = entry.user
-                if actor.bot or actor.id == member.id:
-                    return
-                actor_member = guild.get_member(actor.id)
-                if actor_member is None:
-                    return
-                if is_whitelisted(actor_member, cfg):
-                    return
-                now      = time.time()
-                interval = va.get("window", 10)
-                limit    = va.get("limit", 5)
-                track    = bot.voice_track[guild.id][actor.id]
-                track    = [(a, t) for a, t in track if now - t < interval]
-                track.append((str(entry.action), now))
-                bot.voice_track[guild.id][actor.id] = track
-                if len(track) >= limit:
-                    triggered_count = len(track)  # [Audit Session 5] บันทึกก่อน reset ไม่งั้น log แสดง 0
-                    bot.voice_track[guild.id][actor.id] = []
-                    mute_min = va.get("mute_duration", 10)
-                    # [Audit Session 3] แก้: แปลง mute_duration (นาที) → seconds ให้ตรงกับ timeout_seconds parameter
-                    timeout_sec = mute_min * 60
-                    em = discord.Embed(
-                        title="🎙️ Voice Abuse",
-                        description=f"{actor_member.mention} ทำ voice action รัวๆ ({triggered_count}x ใน {interval}วิ)",
-                        color=0xf59e0b)
-                    await asyncio.gather(
-                        apply_punishment(guild, actor_member,
-                            va.get("punishment", "timeout"),
-                            f"Voice Abuse: {len(track)} ครั้งใน {interval} วิ",
-                            timeout_seconds=timeout_sec),
-                        send_log(guild, em),
-                        return_exceptions=True,
-                    )
-        except Exception as e:
-            log.error(f"on_voice_state_update: {e}")
-    asyncio.create_task(_check())
+    try:
+        if actor.bot or actor.id == guild.me.id:
+            return
+        actor_member = guild.get_member(actor.id)
+        if actor_member is None:
+            return
+        if is_whitelisted(actor_member, cfg):
+            return
+        now      = time.time()
+        interval = va.get("window", 10)
+        limit    = va.get("limit", 5)
+        track    = bot.voice_track[guild.id][actor.id]
+        track    = [(a, t) for a, t in track if now - t < interval]
+        track.append((str(entry.action), now))
+        bot.voice_track[guild.id][actor.id] = track
+        if len(track) >= limit:
+            triggered_count = len(track)
+            bot.voice_track[guild.id][actor.id] = []
+            mute_min = va.get("mute_duration", 10)
+            timeout_sec = mute_min * 60
+            em = discord.Embed(
+                title="🎙️ Voice Abuse",
+                description=f"{actor_member.mention} ทำ voice action รัวๆ ({triggered_count}x ใน {interval}วิ)",
+                color=0xf59e0b)
+            await asyncio.gather(
+                apply_punishment(guild, actor_member,
+                    va.get("punishment", "timeout"),
+                    f"Voice Abuse: {triggered_count} ครั้งใน {interval} วิ",
+                    timeout_seconds=timeout_sec),
+                send_log(guild, em),
+                return_exceptions=True,
+            )
+    except Exception as e:
+        log.error(f"_handle_voice_abuse_entry: {e}")
 
 # ══════════════════════════════════════════════════════════════════
 #  OTHER LOG EVENTS
