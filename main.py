@@ -49,6 +49,12 @@
 #    on_guild_role_create/delete/update, on_guild_update, on_member_update
 #
 #  [Session 8] Deep Scan + Bot Action Log + Blacklist Monitor + Auto-classify
+#
+#  [Session 9] Premium Embed Overhaul — ประวัติการกระทำ
+#  • bot_log() — เพิ่ม detected_ms / punished_ms parameter
+#  • apply_punishment() — รับ detected_ms → คำนวณ response time
+#  • check_feature() — บันทึก detected_ms ตอนตรวจพบ
+#  • embed ทุกจุด ใช้ custom emoji + ms timestamp + Discord timestamp
 #  • เพิ่ม run_deep_scan() — scan ทุก member/role/channel/webhook ตอน startup
 #    บันทึกผลเป็น deep_scan.json ใน data channel ของแต่ละ guild
 #  • เพิ่ม bot_log() + ensure_bot_action_log() — ห้อง 🤖・bot-action-log
@@ -93,78 +99,82 @@
 # ══════════════════════════════════════════════════════════════════
 
 # ══════════════════════════════════════════════════════════════════
-#  โครงสร้างโค้ดโดยรวม  (อัปเดต Session 8)
+#  โครงสร้างโค้ดโดยรวม  (อัปเดต Session 9)
 #
-#  บรรทัด   1– 193  │ Header: ENV, logging, regex, constants, สร้าง bot object
-#  บรรทัด 195– 310  │ SecurityBot.__init__ — ประกาศตัวแปรทั้งหมด
-#  บรรทัด 311– 491  │ BIE (Behavioral Intelligence Engine)
-#                   │   BIE_TRACKED (311), bie_record (313), bie_hourly_avg (332),
-#                   │   bie_baseline_snapshot task (476)
-#  บรรทัด 493– 589  │ Config: _feature() (493), default_config() (500)
-#  บรรทัด 590– 609  │ get_cfg() — ดึง/สร้าง config พร้อม backward compat
-#  บรรทัด 610– 660  │ Whitelist: is_whitelisted() (610), is_exempt() (625)
-#  บรรทัด 661– 712  │ Suspicious Behavior Tracker
-#                   │   SUSPICIOUS_RULES (106), record_action() (661)
-#  บรรทัด 713– 740  │ Audit Log (in-memory) — add_audit()
-#  บรรทัด 741– 849  │ apply_punishment() — ban/kick/timeout/quarantine/log
-#  บรรทัด 850– 941  │ Data Channel System
-#                   │   ensure_data_channel() (820), _prune_old() (852),
-#                   │   load_guild_data() (866), save_guild_data() (910)
-#  บรรทัด 942– 956  │ auto_save task — background task บันทึก config ทุก 5 นาที
-#  บรรทัด 957–1025  │ Bot Action Log System [Session 8]
-#                   │   BOT_ACTION_LOG_NAME (957), ensure_bot_action_log() (957),
-#                   │   bot_log() (983)
-#  บรรทัด 1019–1228 │ Deep Scan System [Session 8]
-#                   │   DEEP_SCAN_PERMS (1019), run_deep_scan() (1026)
-#  บรรทัด 1229–1259 │ Blacklist Role Monitor [Session 8]
-#                   │   blacklist_role_monitor task (1229)
-#  บรรทัด 1260–1309 │ Auto-classify Roles API [Session 8]
-#                   │   api_role_manager_auto_classify() (1260)
-#  บรรทัด 1311–1353 │ Token Manager
-#                   │   create_token() (1311), verify_token(), cleanup_tokens (1336)
-#  บรรทัด 1355–1425 │ Log Channel System — send_log() (1355), create_log_channel() (1378)
-#  บรรทัด 1427–1497 │ Nuke Tracker — check_feature() sliding-window
-#  บรรทัด 1499–1572 │ Events: on_ready (1499), on_guild_join (1554)
-#  บรรทัด 1574–1717 │ Slash Commands
-#                   │   /getcode (1574), /initbl (1599), /lockdown (1637), /whitelist (1672)
-#  บรรทัด 1719–1802 │ on_message() — AutoMod + routing Anti-Spam
-#  บรรทัด 1804–1812 │ _rate_check() — sliding-window helper
-#  บรรทัด 1814–1951 │ Anti-Spam
-#                   │   _check_text_spam (1814), _check_mass_mentions (1843),
-#                   │   _check_link_spam (1866), _check_att_spam (1885),
-#                   │   _check_emoji_spam (1901)
-#  บรรทัด 1953–1984 │ Reaction Spam — on_reaction_add()
-#  บรรทัด 1986–2097 │ Join Gate — on_member_join() (1986), _disable_raid() (2076)
-#  บรรทัด 2099–2171 │ Server Lockdown — do_lockdown()
-#  บรรทัด 2173–2329 │ Anti-Nuke Events
-#                   │   on_member_ban (2173), on_member_remove (2180),
-#                   │   on_guild_channel_create (2195), on_guild_role_create (2216),
-#                   │   on_member_update (2235), on_guild_update/anti_vanity (2275)
-#  บรรทัด 2331–2430 │ Event-driven Layer [Session 7]
-#                   │   _ACTION_FEATURE_MAP (2331), on_audit_log_entry_create (2331)
-#  บรรทัด 2432–2488 │ Voice Abuse — VOICE_ABUSE_ACTIONS (2432), on_voice_state_update() (2432)
-#  บรรทัด 2490–2622 │ Other Log Events
-#                   │   on_message_delete (2490), on_message_edit (2502),
-#                   │   on_invite_create (2514)
-#  บรรทัด 2624–2901 │ Web API ชุดที่ 1
-#                   │   jres() (2624), api_verify() (2638),
-#                   │   api_get_config() (2644), api_post_config() (2650),
-#                   │   api_stats() (2678), api_logs() (2700),
-#                   │   api_channels_validate() (2725), api_channels_clear() (2750),
-#                   │   api_create_log_channel() (2771), api_delete_log_channel() (2795),
-#                   │   api_roles() (2810), api_members() (2823)
-#  บรรทัด 2896–3120 │ Advanced Lockdown
-#                   │   ADV_LOCK_PERMS (2896), _role_is_admin_like() (2896),
-#                   │   do_advanced_lockdown() (2903) — 5 ขั้นตอน
-#  บรรทัด 3121–3337 │ Web API ชุดที่ 2
-#                   │   api_advanced_manage() (3121), api_lockdown() (3147),
-#                   │   api_role_manager_get() (3166), api_role_manager_post() (3174),
-#                   │   api_member_detail() (3191), api_save_member_exemptions() (3221),
-#                   │   api_role_channels() (3239), api_suspicious_alerts() (3271),
-#                   │   api_mark_alert_read() (3292), api_member_actions() (3308)
-#  บรรทัด 3339–6220 │ DASHBOARD_HTML — SPA inline HTML/CSS/JS (Chart.js, Lucide)
-#  บรรทัด 6222–6287 │ page_index() (6222), api_bie_stats() (6249)
-#  บรรทัด 6288–6333 │ Web Server — run_web() (6288), main() (6326), entrypoint
+#  บรรทัด    1–  175  │ Header: ENV, logging, regex, constants, สร้าง bot object
+#  บรรทัด  176–  208  │ imports + ENV constants
+#  บรรทัด  209–  294  │ SecurityBot.__init__ — ประกาศตัวแปรทั้งหมด
+#  บรรทัด  295–  506  │ BIE (Behavioral Intelligence Engine)
+#                    │   BIE_TRACKED (295), bie_record, bie_hourly_avg,
+#                    │   bie_baseline_snapshot task
+#  บรรทัด  507–  615  │ Config: _feature() (507), default_config()
+#  บรรทัด  616–  635  │ get_cfg() — ดึง/สร้าง config พร้อม backward compat
+#  บรรทัด  636–  686  │ Whitelist: is_whitelisted() (636), is_exempt()
+#  บรรทัด  667–  738  │ Suspicious Behavior Tracker
+#                    │   SUSPICIOUS_RULES (667), record_action() (687)
+#  บรรทัด  739–  766  │ Audit Log (in-memory) — add_audit()
+#  บรรทัด  767–  869  │ apply_punishment() — ban/kick/timeout/quarantine/log
+#                    │   [Session 9] รับ detected_ms → คำนวณ response time
+#  บรรทัด  870–  983  │ Data Channel System
+#                    │   ensure_data_channel() (870), _prune_old(),
+#                    │   load_guild_data(), save_guild_data()
+#  บรรทัด  984–  996  │ auto_save task — background task บันทึก config ทุก 5 นาที
+#  บรรทัด  997– 1133  │ Bot Action Log System [Session 8]
+#                    │   BOT_ACTION_LOG_NAME (997), ensure_bot_action_log(),
+#                    │   bot_log() (1041) — [Session 9] detected_ms/punished_ms/response time
+#  บรรทัด 1134– 1341  │ Deep Scan System [Session 8]
+#                    │   DEEP_SCAN_PERMS (1134), run_deep_scan()
+#  บรรทัด 1342– 1372  │ Blacklist Role Monitor [Session 8]
+#                    │   blacklist_role_monitor task (1342)
+#  บรรทัด 1373– 1423  │ Auto-classify Roles API [Session 8]
+#                    │   api_role_manager_auto_classify() (1373)
+#  บรรทัด 1424– 1467  │ Token Manager
+#                    │   create_token() (1424), verify_token(), cleanup_tokens
+#  บรรทัด 1468– 1539  │ Log Channel System — send_log() (1468), create_log_channel()
+#  บรรทัด 1540– 1658  │ Nuke Tracker — check_feature() sliding-window
+#                    │   [Session 9] บันทึก detected_ms + embed พรีเมียม
+#  บรรทัด 1659– 1738  │ Events: on_ready (1659), on_guild_join
+#  บรรทัด 1739– 1894  │ Slash Commands
+#                    │   /getcode (1739), /initbl, /lockdown, /whitelist
+#  บรรทัด 1895– 2005  │ on_message() — AutoMod + routing Anti-Spam
+#  บรรทัด 2006– 2015  │ _rate_check() — sliding-window helper
+#  บรรทัด 2016– 2207  │ Anti-Spam [Session 9 embed]
+#                    │   _check_text_spam (2016), _check_mass_mentions,
+#                    │   _check_link_spam, _check_att_spam, _check_emoji_spam
+#  บรรทัด 2208– 2240  │ Reaction Spam — on_reaction_add()
+#  บรรทัด 2241– 2390  │ Join Gate — on_member_join() (2241), _disable_raid()
+#  บรรทัด 2391– 2489  │ Server Lockdown — do_lockdown()
+#  บรรทัด 2490– 2769  │ Anti-Nuke Events [Session 9 embed ทุกจุด]
+#                    │   on_member_ban (2490), on_member_remove (2508),
+#                    │   on_member_unban (2533), on_guild_channel_create (2550),
+#                    │   on_guild_channel_delete (2573), on_guild_role_create (2599),
+#                    │   on_guild_role_delete (2628), on_member_update (2662),
+#                    │   on_guild_update/anti_vanity (2735)
+#  บรรทัด 2771– 2905  │ Event-driven Layer [Session 7]
+#                    │   _ACTION_FEATURE_MAP (2771), on_audit_log_entry_create (2791)
+#  บรรทัด 2906– 3047  │ Voice Abuse [Session 9 embed]
+#                    │   VOICE_ABUSE_ACTIONS (2906), on_voice_state_update() (2912)
+#  บรรทัด 3048– 3373  │ Other Log Events [Session 9 embed]
+#                    │   on_message_delete (3048), on_message_edit (3078),
+#                    │   on_invite_create (3104)
+#  บรรทัด 3374– 3769  │ Web API ชุดที่ 1
+#                    │   jres() (3374), api_verify(), api_get_config(),
+#                    │   api_post_config(), api_stats(), api_logs(),
+#                    │   api_channels_validate(), api_channels_clear(),
+#                    │   api_create_log_channel(), api_delete_log_channel(),
+#                    │   api_roles(), api_members()
+#  บรรทัด 3770– 4054  │ Advanced Lockdown [Session 9 embed]
+#                    │   ADV_LOCK_PERMS (3770), _role_is_admin_like(),
+#                    │   do_advanced_lockdown() (3793) — 5 ขั้นตอน
+#  บรรทัด 4055– 4272  │ Web API ชุดที่ 2
+#                    │   api_advanced_manage() (4055), api_lockdown(),
+#                    │   api_role_manager_get(), api_role_manager_post(),
+#                    │   api_member_detail(), api_save_member_exemptions(),
+#                    │   api_role_channels(), api_suspicious_alerts(),
+#                    │   api_mark_alert_read(), api_member_actions()
+#  บรรทัด 4273– 7437  │ DASHBOARD_HTML — SPA inline HTML/CSS/JS (Chart.js, Lucide)
+#  บรรทัด 7438– 7503  │ page_index() (7438), api_bie_stats() (7465)
+#  บรรทัด 7504– 7555  │ Web Server — run_web() (7504), main() (7548), entrypoint
 # ══════════════════════════════════════════════════════════════════
 
 import os, json, asyncio, io, secrets, logging, re, time, math, statistics
@@ -760,15 +770,32 @@ PUNISH_OPTIONS = ["ban", "kick", "quarantine", "timeout", "log"]
 
 async def apply_punishment(guild: discord.Guild, member: discord.Member,
                            punishment: str, reason: str, mute_min: int = 5,
-                           timeout_seconds: int = None):
+                           timeout_seconds: int = None, detected_ms: int = None):
+    punished_ms = int(time.time() * 1000)
     # audit log บันทึกทันที ไม่ต้องรอ
     add_audit(guild.id, punishment.upper(), str(member), str(member.id), reason)
-    # bot_log: รายงานทุก action ที่บอทกำลังจะทำ
+    _PUNISH_EMOJI = {
+        "ban":        "<:cancel:660789591900684329>",
+        "kick":       "<:purge:893442103273730059>",
+        "timeout":    "<:warning:893441959673360444>",
+        "quarantine": "<:danger:893442038815653898>",
+        "log":        "<:alert3:964184304940888085>",
+    }
+    p_ico = _PUNISH_EMOJI.get(punishment, "🔨")
+    detail_lines = [
+        f"**สมาชิก:** {member.mention} `{member}` (ID: `{member.id}`)",
+        f"**การลงโทษ:** `{punishment.upper()}`",
+    ]
+    if punishment == "timeout":
+        dur_sec = timeout_seconds if timeout_seconds else mute_min * 60
+        detail_lines.append(f"**ระยะเวลา:** `{dur_sec} วินาที` ({dur_sec/60:.1f} นาที)")
     asyncio.create_task(bot_log(
         guild,
-        f"🔨 ดำเนินการ: {punishment.upper()}",
-        f"เป้าหมาย: **{member}** (ID: `{member.id}`)\nเหตุผล: {reason}",
+        f"{p_ico} ดำเนินการ: {punishment.upper()} — {member}",
+        "\n".join(detail_lines),
         reason=reason,
+        detected_ms=detected_ms,
+        punished_ms=punished_ms,
     ))
     for attempt in range(3):
         try:
@@ -839,7 +866,6 @@ async def apply_punishment(guild: discord.Guild, member: discord.Member,
 #  ใช้ per-guild lock (_save_locks) ป้องกันการบันทึกพร้อมกันซ้อน
 # ══════════════════════════════════════════════════════════════════
 DATA_CH_PREFIX = "💾・"
-
 async def get_data_server() -> discord.Guild | None:
     if not DATA_SERVER_ID:
         return None
@@ -1017,24 +1043,80 @@ async def _create_bot_action_log(guild: discord.Guild) -> discord.TextChannel | 
         return None
 
 async def bot_log(guild: discord.Guild, action: str, detail: str,
-                  suspicious: bool = False, reason: str = ""):
+                  suspicious: bool = False, reason: str = "",
+                  detected_ms: int = None, punished_ms: int = None):
     """
     ส่ง log ทุก action ของบอทลงห้อง bot-action-log
-    suspicious=True → แสดงเป็นสีส้ม (สงสัยแต่ยังไม่จัดการ)
+    suspicious=True → สีส้ม (สงสัยแต่ยังไม่จัดการ)
+    detected_ms / punished_ms → timestamp มิลลิวินาทีที่ตรวจพบ/ลงโทษ
     """
     ch = await ensure_bot_action_log(guild)
     if not ch:
         return
-    now_ms = int(time.time() * 1000)
-    ts_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.") + f"{now_ms % 1000:03d} UTC"
-    color = 0xff8c00 if suspicious else 0x3b6ef8
+
+    now_epoch_ms = int(time.time() * 1000)
+    now_dt       = datetime.now(timezone.utc)
+    ts_full      = now_dt.strftime("%d/%m/%Y %H:%M:%S") + f".{now_epoch_ms % 1000:03d} UTC"
+
+    # อีโมจิชุด custom
+    E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+    E_BELL   = "<:bell:893442623161913415>"
+    E_WARN   = "<:warning:893441959673360444>"
+    E_DANGER = "<:danger:893442038815653898>"
+    E_OK     = "<:success:893442265010278401>"
+    E_ALERT  = "<:alert3:964184304940888085>"
+    E_SEP    = "<:separator:661194173499703306>"
+    E_ROLE   = "<:roles:661181617867587605>"
+    E_WL     = "<:whitelistRole:660816163818962985>"
+    E_CANCEL = "<:cancel:660789591900684329>"
+    E_PURGE  = "<:purge:893442103273730059>"
+    E_HOOK   = "<:webhook:661181620132511744>"
+    E_SORT   = "<:rightsort:893442692460216350>"
+
+    if suspicious:
+        color      = 0xff8c00
+        status_ico = E_ALERT
+        label      = "**⚠️ พฤติกรรมน่าสงสัย** — ยังไม่ดำเนินการ"
+    else:
+        color      = 0x3b6ef8
+        status_ico = E_OK
+        label      = "**✅ ดำเนินการแล้ว**"
+
     em = discord.Embed(
-        title=f"{'🟠' if suspicious else '🔵'} {action}",
-        description=detail,
+        title=f"{status_ico} {action}",
         color=color,
     )
-    em.set_footer(text=f"⏱ {ts_str}" + (f" | เหตุผล: {reason}" if reason else ""))
-    em.timestamp = datetime.now(timezone.utc)
+
+    # ── ส่วนหลัก ──
+    em.description = (
+        f"{E_ARROW} {detail}\n"
+        f"{E_SEP}\n"
+        f"{label}"
+    )
+
+    # ── เวลา detect / punish ──
+    time_lines = f"`{ts_full}`"
+    if detected_ms is not None:
+        det_dt  = datetime.fromtimestamp(detected_ms / 1000, tz=timezone.utc)
+        det_str = det_dt.strftime("%H:%M:%S") + f".{detected_ms % 1000:03d}"
+        time_lines += f"\n{E_SORT} **ตรวจพบ:** `{det_str} UTC` `({detected_ms} ms epoch)`"
+    if punished_ms is not None:
+        pun_dt  = datetime.fromtimestamp(punished_ms / 1000, tz=timezone.utc)
+        pun_str = pun_dt.strftime("%H:%M:%S") + f".{punished_ms % 1000:03d}"
+        if detected_ms is not None:
+            delta_ms = punished_ms - detected_ms
+            time_lines += f"\n{E_SORT} **ลงโทษ:** `{pun_str} UTC` `({punished_ms} ms epoch)`"
+            time_lines += f"\n{E_BELL} **Response time:** `{delta_ms} ms`"
+        else:
+            time_lines += f"\n{E_SORT} **ลงโทษ:** `{pun_str} UTC`"
+
+    em.add_field(name=f"{E_ALERT} เวลา (มิลลิวินาที)", value=time_lines, inline=False)
+
+    if reason:
+        em.add_field(name=f"{E_WARN} เหตุผล", value=f"`{reason}`", inline=False)
+
+    em.set_footer(text=f"Security Bot • Guild: {guild.id} • {ts_full}")
+    em.timestamp = now_dt
     try:
         await ch.send(embed=em)
     except Exception as e:
@@ -1058,7 +1140,6 @@ DEEP_SCAN_PERMS = [
     "ban_members", "kick_members", "mention_everyone", "manage_webhooks",
     "manage_messages", "manage_nicknames", "view_audit_log",
 ]
-
 async def run_deep_scan(guild: discord.Guild):
     """
     Deep scan ทั้ง server — รันใน background task ตอน on_ready
@@ -1469,13 +1550,11 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
     if bot.user and actor.id == bot.user.id:
         return
     member = guild.get_member(actor.id)
-    # [Speed] ไม่ยิง fetch_member() แบบ HTTP (ช้า ~200-500ms) เพราะ on_audit_log_entry_create
-    # ส่ง actor มาจาก Gateway cache อยู่แล้ว ถ้า cache miss ให้ใช้ actor โดยตรงแทน
     if member is None:
-        if isinstance(actor, discord.Member):
-            member = actor
-        else:
-            return  # actor เป็น User ที่ออกจาก server แล้ว ข้ามได้เลย
+        try:
+            member = await guild.fetch_member(actor.id)
+        except Exception:
+            return
     cfg = get_cfg(guild.id)
     feat = cfg.get(feature_key, {})
     if not feat.get("enabled"):
@@ -1494,39 +1573,85 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
     bot.nuke_track[guild.id][track_key] = track
 
     if len(track) >= limit:
+        detected_ms = int(time.time() * 1000)
         bot.nuke_track[guild.id][track_key] = []
         adv_enabled = cfg.get("advanced_mode", {}).get(feature_key, False)
+
+        E_ALERT  = "<:alert3:964184304940888085>"
+        E_WARN   = "<:warning:893441959673360444>"
+        E_DANGER = "<:danger:893442038815653898>"
+        E_OK     = "<:success:893442265010278401>"
+        E_BELL   = "<:bell:893442623161913415>"
+        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP    = "<:separator:661194173499703306>"
+        E_SORT   = "<:rightsort:893442692460216350>"
+        E_ROLE   = "<:roles:661181617867587605>"
+        E_CANCEL = "<:cancel:660789591900684329>"
+
         # bot_log: รายงานการตรวจพบทุกครั้ง
         asyncio.create_task(bot_log(
             guild,
-            f"🚨 ตรวจพบ: {label}",
-            f"ผู้กระทำ: **{member}** (ID: `{member.id}`)\n"
-            f"เกินขีด: {len(track)}/{limit} ครั้ง ในช่วง {window} วินาที\n"
-            f"Feature: `{feature_key}` | Advanced: {'เปิด' if adv_enabled else 'ปิด'}",
+            f"{E_ALERT} ตรวจพบ: {label}",
+            f"**ผู้กระทำ:** {member.mention} `{member}` (ID: `{member.id}`)\n"
+            f"**เกินขีด:** `{len(track)}/{limit}` ครั้ง ใน `{window}` วินาที\n"
+            f"**Feature:** `{feature_key}` {E_ARROW} Advanced: `{'เปิด' if adv_enabled else 'ปิด'}`",
             suspicious=True,
+            detected_ms=detected_ms,
         ))
         if adv_enabled:
             asyncio.create_task(do_advanced_lockdown(guild, feature_key, cfg, known_offender_id=actor.id))
             em = discord.Embed(
                 title=f"🟣 {label} — โหมดจัดการขั้นสูง",
-                description=f"เกิน {limit}x ใน {window}วิ\nปิดสิทธิ์ผู้ดูแลชั่วคราว กำลังตรวจสอบ...",
                 color=0xa855f7,
             )
-            em.set_footer(text=f"Feature: {feature_key} | AdvancedMode ON")
-            # [Speed] ใช้ create_task แทน await เพื่อไม่ block event loop
-            asyncio.create_task(send_log(guild, em))
+            em.description = (
+                f"{E_DANGER} **ตรวจพบพฤติกรรมเกินขีด** \n"
+                f"{E_ARROW} {member.mention} `{member}` (ID: `{member.id}`)\n"
+                f"{E_ALERT} เกิน `{limit}x` ใน `{window}` วินาที\n"
+                f"{E_SEP}\n"
+                f"{E_BELL} ปิดสิทธิ์ผู้ดูแลชั่วคราว — กำลังตรวจสอบ..."
+            )
+            em.add_field(
+                name=f"{E_SORT} เวลาที่ตรวจพบ",
+                value=f"`{detected_ms} ms` (<t:{detected_ms//1000}:T>)",
+                inline=True,
+            )
+            em.add_field(name=f"{E_ROLE} Feature", value=f"`{feature_key}`", inline=True)
+            em.set_footer(text=f"AdvancedMode ON | Guild: {guild.id}")
+            em.timestamp = datetime.now(timezone.utc)
+            await send_log(guild, em)
         else:
             punishment = feat.get("punishment", "ban")
             timeout_sec = feat.get("timeout_duration") if punishment == "timeout" else None
             reason = f"{label}: เกิน {limit}x ใน {window}วิ"
+            _PUNISH_COLOR = {"ban": 0xf85149, "kick": 0xff8c00, "timeout": 0xffa500, "quarantine": 0xa855f7, "log": 0x3b6ef8}
+            _PUNISH_ICO   = {"ban": "<:cancel:660789591900684329>", "kick": "<:purge:893442103273730059>",
+                             "timeout": "<:warning:893441959673360444>", "quarantine": "<:danger:893442038815653898>",
+                             "log": "<:alert3:964184304940888085>"}
+            p_ico   = _PUNISH_ICO.get(punishment, "🔨")
+            p_color = _PUNISH_COLOR.get(punishment, 0xf85149)
             em = discord.Embed(
-                title=f"🚨 {label} ทำงาน",
-                description=f"{member.mention} ถูก **{punishment}** ({limit}x ใน {window}วิ)\nเหตุผล: {reason}",
-                color=0xf85149,
+                title=f"{p_ico} {label} — {punishment.upper()}",
+                color=p_color,
             )
-            em.set_footer(text=f"Feature: {feature_key} | Guild: {guild.id}")
+            em.description = (
+                f"{E_ARROW} {member.mention} `{member}` (ID: `{member.id}`)\n"
+                f"{E_ALERT} เกิน `{limit}x` ใน `{window}` วินาที\n"
+                f"{E_SEP}\n"
+                f"{p_ico} ลงโทษ: **{punishment.upper()}**"
+            )
+            em.add_field(
+                name=f"{E_SORT} เวลาที่ตรวจพบ",
+                value=f"`{detected_ms} ms` (<t:{detected_ms//1000}:T>)",
+                inline=True,
+            )
+            em.add_field(name=f"{E_ROLE} Feature", value=f"`{feature_key}`", inline=True)
+            em.add_field(name=f"{E_WARN} เหตุผล", value=f"`{reason}`", inline=False)
+            em.set_footer(text=f"Security Bot | Guild: {guild.id}")
+            em.timestamp = datetime.now(timezone.utc)
             await asyncio.gather(
-                apply_punishment(guild, member, punishment, reason, timeout_seconds=timeout_sec),
+                apply_punishment(guild, member, punishment, reason,
+                                 timeout_seconds=timeout_sec, detected_ms=detected_ms),
                 send_log(guild, em),
                 return_exceptions=True,
             )
@@ -1733,9 +1858,19 @@ async def slash_whitelist(
     if action == "list":
         user_mentions = [f"<@{uid}>" for uid in wl.get("users", [])]
         role_mentions = [f"<@&{rid}>" for rid in wl.get("roles", [])]
-        embed = discord.Embed(title="✅ Whitelist", color=0x3b6ef8)
-        embed.add_field(name="👤 สมาชิก", value=", ".join(user_mentions) or "-", inline=False)
-        embed.add_field(name="🏷️ ยศ",    value=", ".join(role_mentions) or "-", inline=False)
+        E_OK   = "<:success:893442265010278401>"
+        E_WL   = "<:whitelistRole:660816163818962985>"
+        E_ROLE = "<:roles:661181617867587605>"
+        E_SEP  = "<:separator:661194173499703306>"
+        E_ARROW= "<:RightDoubleArrow:893440209801330688>"
+        embed = discord.Embed(title=f"{E_OK} รายการ Whitelist", color=0x3b6ef8)
+        embed.description = f"{E_ARROW} สมาชิกและยศที่ยกเว้นจากระบบ Security\n{E_SEP}"
+        embed.add_field(name=f"{E_WL} สมาชิก ({len(user_mentions)})",
+                        value=", ".join(user_mentions) or "`ไม่มี`", inline=False)
+        embed.add_field(name=f"{E_ROLE} ยศ ({len(role_mentions)})",
+                        value=", ".join(role_mentions) or "`ไม่มี`", inline=False)
+        embed.set_footer(text=f"Guild: {guild.id}")
+        embed.timestamp = datetime.now(timezone.utc)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     if target_type == "user":
@@ -1903,14 +2038,27 @@ async def _check_text_spam(message: discord.Message, cfg: dict):
         bot.ch_heat[message.guild.id][message.channel.id][message.author.id] = []
         await apply_punishment(message.guild, message.author,
                                feat.get("punishment","timeout"), "Anti-Text Spam")
-        await send_log(message.guild, discord.Embed(
-            title="🔁 Anti-Text Spam", color=0xffa502,
-            description=f"{message.author.mention} ส่งข้อความถี่เกินไป"))
+        _ms = int(time.time() * 1000)
+        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP   = "<:separator:661194173499703306>"
+        E_WARN  = "<:warning:893441959673360444>"
+        E_SORT  = "<:rightsort:893442692460216350>"
+        _em_sp = discord.Embed(title=f"{E_WARN} Anti-Text Spam", color=0xffa502)
+        _em_sp.description = (
+            f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
+            f"{E_ARROW} **ห้อง:** {message.channel.mention}\n"
+            f"{E_ARROW} **เกิน:** `{feat.get('limit',5)}x` ใน `{feat.get('window',5)}` วินาที\n"
+            f"{E_SEP}"
+        )
+        _em_sp.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        _em_sp.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        _em_sp.set_footer(text=f"AntiSpam | Guild: {message.guild.id}")
+        _em_sp.timestamp = datetime.now(timezone.utc)
+        await send_log(message.guild, _em_sp)
         # ── BIE analyze async ──
         asyncio.create_task(bie_analyze(message.guild, message.author.id, "msg_spam"))
         # ── Auto Slowmode: เปิด slowmode 10 วิ ในห้องนั้น 60 วิ ──
         asyncio.create_task(_auto_slowmode(message.channel, 10, 60))
-
 async def _check_mass_mentions(message: discord.Message, cfg: dict):
     feat = cfg.get("anti_mass_mentions", {})
     if not feat.get("enabled"):
@@ -1929,11 +2077,26 @@ async def _check_mass_mentions(message: discord.Message, cfg: dict):
     except: pass
     await apply_punishment(message.guild, message.author,
                            feat.get("punishment","timeout"), f"Anti-Mass Mentions: {total_mentions} mentions")
-    await send_log(message.guild, discord.Embed(
-        title="📢 Anti-Mass Mentions", color=0xffa502,
-        description=f"{message.author.mention} แท็กสมาชิก {total_mentions} ครั้งในข้อความเดียว"))
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_WARN  = "<:warning:893441959673360444>"
+    E_BELL  = "<:bell:893442623161913415>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    _em_mm = discord.Embed(title=f"{E_WARN} Anti-Mass Mentions", color=0xffa502)
+    _em_mm.description = (
+        f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
+        f"{E_BELL} แท็กสมาชิก **{total_mentions} ครั้ง** ในข้อความเดียว\n"
+        f"{E_ARROW} **มี @everyone:** `{'ใช่' if message.mention_everyone else 'ไม่'}` | "
+        f"**@role:** `{len(message.role_mentions)}` | **@user:** `{len(message.mentions)}`\n"
+        f"{E_SEP}"
+    )
+    _em_mm.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    _em_mm.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    _em_mm.set_footer(text=f"AntiSpam | Guild: {message.guild.id}")
+    _em_mm.timestamp = datetime.now(timezone.utc)
+    await send_log(message.guild, _em_mm)
     asyncio.create_task(bie_analyze(message.guild, message.author.id, "mention"))
-
 async def _check_link_spam(message: discord.Message, cfg: dict):
     feat = cfg.get("anti_link_spam", {})
     if not feat.get("enabled"):
@@ -1948,11 +2111,24 @@ async def _check_link_spam(message: discord.Message, cfg: dict):
         except: pass
         await apply_punishment(message.guild, message.author,
                                feat.get("punishment","timeout"), "Anti-Link Spam")
-        await send_log(message.guild, discord.Embed(
-            title="🔗 Anti-Link Spam", color=0xffa502,
-            description=f"{message.author.mention} ส่งลิงก์ถี่เกินไป"))
+        _ms = int(time.time() * 1000)
+        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP   = "<:separator:661194173499703306>"
+        E_WARN  = "<:warning:893441959673360444>"
+        E_SORT  = "<:rightsort:893442692460216350>"
+        _em_lk = discord.Embed(title=f"{E_WARN} Anti-Link Spam", color=0xffa502)
+        _em_lk.description = (
+            f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
+            f"{E_ARROW} **ห้อง:** {message.channel.mention}\n"
+            f"{E_ARROW} **เกิน:** `{feat.get('limit',5)}x` ใน `{feat.get('window',5)}` วินาที\n"
+            f"{E_SEP}"
+        )
+        _em_lk.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        _em_lk.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        _em_lk.set_footer(text=f"AntiSpam | Guild: {message.guild.id}")
+        _em_lk.timestamp = datetime.now(timezone.utc)
+        await send_log(message.guild, _em_lk)
         asyncio.create_task(bie_analyze(message.guild, message.author.id, "msg_spam"))
-
 async def _check_att_spam(message: discord.Message, cfg: dict):
     feat = cfg.get("anti_att_spam", {})
     if not feat.get("enabled") or not message.attachments:
@@ -1965,10 +2141,23 @@ async def _check_att_spam(message: discord.Message, cfg: dict):
         except: pass
         await apply_punishment(message.guild, message.author,
                                feat.get("punishment","timeout"), "Anti-Attachment Spam")
-        await send_log(message.guild, discord.Embed(
-            title="📎 Anti-Attachment Spam", color=0xffa502,
-            description=f"{message.author.mention} ส่งไฟล์ถี่เกินไป"))
-
+        _ms = int(time.time() * 1000)
+        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP   = "<:separator:661194173499703306>"
+        E_WARN  = "<:warning:893441959673360444>"
+        E_SORT  = "<:rightsort:893442692460216350>"
+        _em_at = discord.Embed(title=f"{E_WARN} Anti-Attachment Spam", color=0xffa502)
+        _em_at.description = (
+            f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
+            f"{E_ARROW} **ห้อง:** {message.channel.mention}\n"
+            f"{E_ARROW} **เกิน:** `{feat.get('limit',5)}x` ใน `{feat.get('window',5)}` วินาที\n"
+            f"{E_SEP}"
+        )
+        _em_at.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        _em_at.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        _em_at.set_footer(text=f"AntiSpam | Guild: {message.guild.id}")
+        _em_at.timestamp = datetime.now(timezone.utc)
+        await send_log(message.guild, _em_at)
 async def _check_emoji_spam(message: discord.Message, cfg: dict):
     feat = cfg.get("anti_emoji_spam", {})
     if not feat.get("enabled"):
@@ -1984,10 +2173,24 @@ async def _check_emoji_spam(message: discord.Message, cfg: dict):
     except: pass
     await apply_punishment(message.guild, message.author,
                            feat.get("punishment","timeout"), f"Anti-Emoji Spam: {emoji_count} emoji")
-    await send_log(message.guild, discord.Embed(
-        title="😂 Anti-Emoji Spam", color=0xffa502,
-        description=f"{message.author.mention} ส่ง emoji {emoji_count} ตัวในข้อความเดียว"))
-
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_WARN  = "<:warning:893441959673360444>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    E_BELL  = "<:bell:893442623161913415>"
+    _em_ej = discord.Embed(title=f"{E_WARN} Anti-Emoji Spam", color=0xffa502)
+    _em_ej.description = (
+        f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
+        f"{E_BELL} ส่ง emoji **{emoji_count} ตัว** ในข้อความเดียว\n"
+        f"{E_ARROW} **ห้อง:** {message.channel.mention}\n"
+        f"{E_SEP}"
+    )
+    _em_ej.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    _em_ej.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    _em_ej.set_footer(text=f"AntiSpam | Guild: {message.guild.id}")
+    _em_ej.timestamp = datetime.now(timezone.utc)
+    await send_log(message.guild, _em_ej)
 async def _auto_slowmode(channel: discord.TextChannel, delay_sec: int, duration_sec: int):
     """เปิด slowmode ชั่วคราวในห้องที่โดน spam แล้วคืนค่าเดิมหลังจาก duration_sec วิ"""
     try:
@@ -2111,9 +2314,24 @@ async def on_member_join(member: discord.Member):
         bot.join_tracker[guild.id].append(now)
         if len(bot.join_tracker[guild.id]) >= limit and guild.id not in bot.raid_mode:
             bot.raid_mode.add(guild.id)
-            em = discord.Embed(title="🚨 RAID DETECTED",
-                               description=f"มีบัญชีเข้าร่วม {limit}+ คนใน {window} วิ — เปิด Raid Mode",
-                               color=0xf85149)
+            _ms = int(time.time() * 1000)
+            E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+            E_SEP    = "<:separator:661194173499703306>"
+            E_DANGER = "<:danger:893442038815653898>"
+            E_ALERT  = "<:alert3:964184304940888085>"
+            E_BELL   = "<:bell:893442623161913415>"
+            E_SORT   = "<:rightsort:893442692460216350>"
+            em = discord.Embed(title=f"{E_DANGER} RAID DETECTED — Raid Mode เปิดแล้ว", color=0xf85149)
+            em.description = (
+                f"{E_ARROW} มีบัญชีเข้าร่วม **{limit}+ คน** ใน `{window}` วินาที\n"
+                f"{E_BELL} สมาชิกใหม่ทุกคนจะถูกเตะอัตโนมัติ\n"
+                f"{E_SEP}\n"
+                f"{E_ALERT} **Raid Mode จะปิดอัตโนมัติใน 10 นาที**"
+            )
+            em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+            em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+            em.set_footer(text=f"AntiRaid | Guild: {guild.id}")
+            em.timestamp = datetime.now(timezone.utc)
             await send_log(guild, em)
             asyncio.create_task(_disable_raid(guild.id))
         if guild.id in bot.raid_mode:
@@ -2122,19 +2340,41 @@ async def on_member_join(member: discord.Member):
             return
 
     # ── Log ──
-    em = discord.Embed(title="📥 สมาชิกเข้าร่วม", color=0x3fb950)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_OK    = "<:success:893442265010278401>"
+    E_ROLE  = "<:roles:661181617867587605>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    E_BELL  = "<:bell:893442623161913415>"
+    em = discord.Embed(title=f"{E_OK} สมาชิกเข้าร่วม", color=0x3fb950)
     em.set_thumbnail(url=member.display_avatar.url)
-    em.add_field(name="สมาชิก", value=f"{member.mention} ({member})", inline=False)
-    em.add_field(name="อายุบัญชี", value=f"{age} วัน", inline=True)
-    em.add_field(name="สมาชิกลำดับที่", value=str(guild.member_count), inline=True)
+    em.description = (
+        f"{E_ARROW} **สมาชิก:** {member.mention} `{member}` (ID: `{member.id}`)\n"
+        f"{E_ARROW} **อายุบัญชี:** `{age} วัน` (<t:{int(member.created_at.timestamp())}:R>)\n"
+        f"{E_BELL} **สมาชิกลำดับที่:** `{guild.member_count}`\n"
+        f"{E_SEP}"
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"User ID: {member.id} | Guild: {guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em, "member_join")
-
 async def _disable_raid(guild_id: int):
     await asyncio.sleep(600)
     bot.raid_mode.discard(guild_id)
     guild = bot.get_guild(guild_id)
     if guild:
-        await send_log(guild, discord.Embed(title="✅ Raid Mode ปิดแล้ว", color=0x3fb950))
+        _ms = int(time.time() * 1000)
+        E_OK   = "<:success:893442265010278401>"
+        E_SORT = "<:rightsort:893442692460216350>"
+        E_SEP  = "<:separator:661194173499703306>"
+        _em_rd = discord.Embed(title=f"{E_OK} Raid Mode ปิดแล้ว", color=0x3fb950)
+        _em_rd.description = f"<:RightDoubleArrow:893440209801330688> ระบบป้องกัน Raid ถูกปิดอัตโนมัติหลัง 10 นาที\n{E_SEP}"
+        _em_rd.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        _em_rd.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        _em_rd.timestamp = datetime.now(timezone.utc)
+        await send_log(guild, _em_rd)
 
 # ══════════════════════════════════════════════════════════════════
 #  SERVER LOCKDOWN — do_lockdown()
@@ -2175,9 +2415,23 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
                 await inv.delete(reason="Server Lockdown")
         except Exception:
             pass
-        em = discord.Embed(title="🔒 Server Lockdown เปิดแล้ว",
-                           description="ปิดการพิมพ์ทุกห้องและยกเลิกลิงก์เชิญทั้งหมด",
-                           color=0xf85149)
+        _ms = int(time.time() * 1000)
+        E_DANGER = "<:danger:893442038815653898>"
+        E_CANCEL = "<:cancel:660789591900684329>"
+        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP    = "<:separator:661194173499703306>"
+        E_SORT   = "<:rightsort:893442692460216350>"
+        em = discord.Embed(title=f"{E_DANGER} Server Lockdown เปิดแล้ว", color=0xf85149)
+        em.description = (
+            f"{E_ARROW} ปิดการพิมพ์ทุกห้องชั่วคราว\n"
+            f"{E_CANCEL} ยกเลิกลิงก์เชิญทั้งหมดแล้ว\n"
+            f"{E_SEP}\n"
+            f"**ปลดล็อกได้จาก Dashboard หรือคำสั่ง `/lockdown`**"
+        )
+        em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.set_footer(text=f"ServerLockdown | Guild: {guild.id}")
+        em.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em)
     else:
         if not cfg.get("_lockdown_state"):
@@ -2194,9 +2448,20 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
             except Exception:
                 pass
         await save_guild_data(guild.id)
-        em = discord.Embed(title="🔓 Server Lockdown ปิดแล้ว",
-                           description="คืนสิทธิ์ทุกห้องเรียบร้อยแล้ว",
-                           color=0x3fb950)
+        _ms = int(time.time() * 1000)
+        E_OK   = "<:success:893442265010278401>"
+        E_ARROW= "<:RightDoubleArrow:893440209801330688>"
+        E_SEP  = "<:separator:661194173499703306>"
+        E_SORT = "<:rightsort:893442692460216350>"
+        em = discord.Embed(title=f"{E_OK} Server Lockdown ปิดแล้ว", color=0x3fb950)
+        em.description = (
+            f"{E_ARROW} คืนสิทธิ์ทุกห้องเรียบร้อยแล้ว\n"
+            f"{E_SEP}"
+        )
+        em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.set_footer(text=f"ServerLockdown | Guild: {guild.id}")
+        em.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em)
 
 # ══════════════════════════════════════════════════════════════════
@@ -2228,41 +2493,107 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
 @bot.event
 async def on_member_ban(guild: discord.Guild, user: discord.User):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
-    em = discord.Embed(title="🔨 แบนสมาชิก", color=0xef4444)
-    em.add_field(name="ผู้ถูกแบน", value=f"{user} ({user.id})", inline=False)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_CANCEL= "<:cancel:660789591900684329>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    em = discord.Embed(title=f"{E_CANCEL} แบนสมาชิก", color=0xef4444)
+    em.description = (
+        f"{E_ARROW} **ผู้ถูกแบน:** {user.mention} `{user}` (ID: `{user.id}`)\n"
+        f"{E_SEP}"
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"User ID: {user.id} | Guild: {guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em, "member_ban")
-
 @bot.event
 async def on_member_remove(member: discord.Member):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     guild = member.guild
-    em = discord.Embed(title="📤 สมาชิกออกจาก Server", color=0xf85149)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_PURGE = "<:purge:893442103273730059>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ROLE  = "<:roles:661181617867587605>"
+    em = discord.Embed(title=f"{E_PURGE} สมาชิกออกจาก Server", color=0xf85149)
     em.set_thumbnail(url=member.display_avatar.url)
-    em.add_field(name="สมาชิก", value=f"{member} ({member.id})", inline=False)
+    age_days = (datetime.now(timezone.utc) - member.created_at).days
+    em.description = (
+        f"{E_ARROW} **สมาชิก:** {member.mention} `{member}` (ID: `{member.id}`)\n"
+        f"{E_ARROW} **อายุบัญชี:** `{age_days} วัน`\n"
+        f"{E_SEP}"
+    )
+    roles_str = " ".join(r.mention for r in member.roles if r.name != "@everyone") or "`-`"
+    em.add_field(name=f"{E_ROLE} ยศที่มี", value=roles_str[:500], inline=False)
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"User ID: {member.id} | Guild: {guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em, "member_leave")
-
 @bot.event
 async def on_member_unban(guild: discord.Guild, user: discord.User):
-    em = discord.Embed(title="✅ ยกเลิกแบน", color=0x3fb950)
-    em.add_field(name="ผู้ถูกยกเลิกแบน", value=f"{user} ({user.id})", inline=False)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_OK    = "<:success:893442265010278401>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    em = discord.Embed(title=f"{E_OK} ยกเลิกแบน", color=0x3fb950)
+    em.description = (
+        f"{E_ARROW} **ผู้ถูกยกเลิกแบน:** {user.mention} `{user}` (ID: `{user.id}`)\n"
+        f"{E_SEP}"
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"User ID: {user.id} | Guild: {guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em)
-
 @bot.event
 async def on_guild_channel_create(channel: discord.abc.GuildChannel):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     if channel.name.startswith(DATA_CH_PREFIX):
         return
-    em = discord.Embed(title="📢 สร้างช่องใหม่", color=0x3fb950)
-    em.add_field(name="ช่อง", value=channel.name, inline=False)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_OK    = "<:success:893442265010278401>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    ch_type = type(channel).__name__.replace("Channel","").lower()
+    em = discord.Embed(title=f"{E_OK} สร้างช่องใหม่", color=0x3fb950)
+    em.description = (
+        f"{E_ARROW} **ชื่อช่อง:** `{channel.name}` (ID: `{channel.id}`)\n"
+        f"{E_ARROW} **ประเภท:** `{ch_type}`\n"
+        f"{E_ARROW} **Category:** `{channel.category.name if channel.category else '-'}`\n"
+        f"{E_SEP}"
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Channel ID: {channel.id} | Guild: {channel.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(channel.guild, em, "channel_update")
-
 @bot.event
 async def on_guild_channel_delete(channel: discord.abc.GuildChannel):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
-    em = discord.Embed(title="🗑️ ลบช่อง", color=0xef4444)
-    em.add_field(name="ชื่อช่อง", value=channel.name, inline=False)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_CANCEL= "<:cancel:660789591900684329>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    ch_type = type(channel).__name__.replace("Channel","").lower()
+    em = discord.Embed(title=f"{E_CANCEL} ลบช่อง", color=0xef4444)
+    em.description = (
+        f"{E_ARROW} **ชื่อช่อง:** `{channel.name}` (ID: `{channel.id}`)\n"
+        f"{E_ARROW} **ประเภท:** `{ch_type}`\n"
+        f"{E_ARROW} **Category:** `{channel.category.name if channel.category else '-'}`\n"
+        f"{E_SEP}"
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Channel ID: {channel.id} | Guild: {channel.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(channel.guild, em, "channel_update")
-
 @bot.event
 async def on_guild_channel_update(before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว (รวมการตรวจ lockdown state)
@@ -2271,17 +2602,61 @@ async def on_guild_channel_update(before: discord.abc.GuildChannel, after: disco
 @bot.event
 async def on_guild_role_create(role: discord.Role):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
-    em = discord.Embed(title="🏷️ สร้างยศใหม่", color=0x3fb950)
-    em.add_field(name="ยศ", value=role.name, inline=False)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_OK    = "<:success:893442265010278401>"
+    E_ROLE  = "<:roles:661181617867587605>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    em = discord.Embed(title=f"{E_OK} สร้างยศใหม่", color=0x3fb950)
+    em.description = (
+        f"{E_ARROW} **ชื่อยศ:** `{role.name}` (ID: `{role.id}`)\n"
+        f"{E_ARROW} **สี:** `{str(role.color)}`\n"
+        f"{E_ARROW} **Position:** `{role.position}`\n"
+        f"{E_SEP}"
+    )
+    danger_perms = [p for p in ["administrator","manage_guild","ban_members","kick_members",
+                                 "manage_roles","manage_channels","manage_webhooks"]
+                    if getattr(role.permissions, p, False)]
+    em.add_field(
+        name=f"{E_ROLE} สิทธิ์อันตราย",
+        value=(" ".join(f"`{p}`" for p in danger_perms) if danger_perms else "`ไม่มี`"),
+        inline=False,
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Role ID: {role.id} | Guild: {role.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(role.guild, em, "role_update")
-
 @bot.event
 async def on_guild_role_delete(role: discord.Role):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
-    em = discord.Embed(title="🗑️ ลบยศ", color=0xef4444)
-    em.add_field(name="ชื่อยศ", value=role.name, inline=False)
+    _ms = int(time.time() * 1000)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_CANCEL= "<:cancel:660789591900684329>"
+    E_ROLE  = "<:roles:661181617867587605>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    em = discord.Embed(title=f"{E_CANCEL} ลบยศ", color=0xef4444)
+    em.description = (
+        f"{E_ARROW} **ชื่อยศ:** `{role.name}` (ID: `{role.id}`)\n"
+        f"{E_ARROW} **สี:** `{str(role.color)}`\n"
+        f"{E_ARROW} **Position:** `{role.position}`\n"
+        f"{E_SEP}"
+    )
+    danger_perms = [p for p in ["administrator","manage_guild","ban_members","kick_members",
+                                 "manage_roles","manage_channels","manage_webhooks"]
+                    if getattr(role.permissions, p, False)]
+    em.add_field(
+        name=f"{E_ROLE} สิทธิ์ที่ยศนี้เคยมี",
+        value=(" ".join(f"`{p}`" for p in danger_perms) if danger_perms else "`ไม่มีสิทธิ์อันตราย`"),
+        inline=False,
+    )
+    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Role ID: {role.id} | Guild: {role.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(role.guild, em, "role_update")
-
 @bot.event
 async def on_guild_role_update(before: discord.Role, after: discord.Role):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว (รวมการตรวจ adv_lock_active)
@@ -2304,24 +2679,62 @@ async def on_member_update(before: discord.Member, after: discord.Member):
         pass
 
     if added or removed:
-        em = discord.Embed(title="🏷️ ยศสมาชิกเปลี่ยน", color=0x5865F2)
-        em.add_field(name="สมาชิก", value=f"{after.mention} ({after})", inline=False)
-        if added:   em.add_field(name="ได้รับยศ", value=" ".join(r.mention for r in added),   inline=False)
-        if removed: em.add_field(name="ถูกถอดยศ", value=" ".join(r.mention for r in removed), inline=False)
-        # [Speed] ลบ audit_logs HTTP query ออก — ข้อมูล "โดย" มีใน on_audit_log_entry_create อยู่แล้ว
-        # ป้องกัน HTTP round-trip ~200-500ms ต่อ event
+        _ms = int(time.time() * 1000)
+        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP   = "<:separator:661194173499703306>"
+        E_ROLE  = "<:roles:661181617867587605>"
+        E_WL    = "<:whitelistRole:660816163818962985>"
+        E_CANCEL= "<:cancel:660789591900684329>"
+        E_SORT  = "<:rightsort:893442692460216350>"
+        E_OK    = "<:success:893442265010278401>"
+        em = discord.Embed(title=f"{E_ROLE} ยศสมาชิกเปลี่ยนแปลง", color=0x5865F2)
+        em.description = (
+            f"{E_ARROW} **สมาชิก:** {after.mention} `{after}` (ID: `{after.id}`)\n"
+            f"{E_SEP}"
+        )
+        if added:
+            danger = [r for r in added if any(getattr(r.permissions, p, False)
+                      for p in ["administrator","manage_guild","ban_members","kick_members",
+                                "manage_roles","manage_channels","manage_webhooks"])]
+            val = " ".join(r.mention for r in added)
+            name = f"{E_OK} ได้รับยศ{f' ⚠️ มีสิทธิ์อันตราย ({len(danger)} ยศ)' if danger else ''}"
+            em.add_field(name=name, value=val[:500], inline=False)
+        if removed:
+            em.add_field(name=f"{E_CANCEL} ถูกถอดยศ",
+                         value=" ".join(r.mention for r in removed)[:500], inline=False)
+        em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
+        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.set_footer(text=f"User ID: {after.id} | Guild: {guild.id}")
+        em.timestamp = datetime.now(timezone.utc)
+        async def _audit_log_who():
+            try:
+                async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
+                    em.add_field(name="โดย", value=str(entry.user), inline=True)
+            except Exception:
+                pass
+        asyncio.create_task(_audit_log_who())
         await send_log(guild, em, "role_update")
 
     if before.nick != after.nick:
-        em = discord.Embed(title="✏️ เปลี่ยนชื่อเล่น", color=0x8b5cf6)
-        em.add_field(name="สมาชิก", value=f"{after.mention}", inline=False)
-        em.add_field(name="ก่อน", value=before.nick or "(ไม่มี)", inline=True)
-        em.add_field(name="หลัง", value=after.nick or "(ไม่มี)", inline=True)
+        _ms = int(time.time() * 1000)
+        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP   = "<:separator:661194173499703306>"
+        E_SORT  = "<:rightsort:893442692460216350>"
+        em = discord.Embed(title=f"{E_SORT} เปลี่ยนชื่อเล่น", color=0x8b5cf6)
+        em.description = (
+            f"{E_ARROW} **สมาชิก:** {after.mention} `{after}` (ID: `{after.id}`)\n"
+            f"{E_SEP}"
+        )
+        em.add_field(name=f"{E_SORT} ก่อน", value=f"`{before.nick or '(ไม่มี)'}`", inline=True)
+        em.add_field(name=f"{E_SORT} หลัง",  value=f"`{after.nick  or '(ไม่มี)'}`", inline=True)
+        em.add_field(name="🕐 เวลา (ms)", value=f"`{_ms}`", inline=True)
+        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.set_footer(text=f"User ID: {after.id} | Guild: {guild.id}")
+        em.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em)
 
 # webhook_create / webhook_delete ถูกจับใน on_audit_log_entry_create แล้ว
 # on_webhooks_update ถูกลบออกเพื่อป้องกัน double-trigger
-
 @bot.event
 async def on_guild_update(before: discord.Guild, after: discord.Guild):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
@@ -2434,26 +2847,40 @@ async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
         # [Session 7] ระบบ A: check_feature (ทั้ง normal และ advanced mode)
         # known_offender_id ส่งตรงๆ ไม่ต้องรอ audit log
         adv_enabled = cfg.get("advanced_mode", {}).get(feature_key, False)
+        _detected_ms = int(time.time() * 1000)
+        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP    = "<:separator:661194173499703306>"
+        E_DANGER = "<:danger:893442038815653898>"
+        E_BELL   = "<:bell:893442623161913415>"
+        E_ROLE   = "<:roles:661181617867587605>"
+        E_SORT   = "<:rightsort:893442692460216350>"
+        E_ALERT  = "<:alert3:964184304940888085>"
         if adv_enabled:
             asyncio.create_task(
                 do_advanced_lockdown(guild, feature_key, cfg, known_offender_id=actor.id)
             )
             em = discord.Embed(
-                title=f"🟣 {label} — โหมดจัดการขั้นสูง (Event-driven)",
-                description="ตรวจจับ actor จาก Gateway ทันที\nปิดสิทธิ์ผู้ดูแลชั่วคราว...",
+                title=f"{E_DANGER} {label} — โหมดจัดการขั้นสูง",
                 color=0xa855f7,
             )
-            em.set_footer(text=f"Feature: {feature_key} | Actor: {actor}")
-            # [Speed] ใช้ create_task ไม่ block event loop
-            asyncio.create_task(send_log(guild, em))
+            em.description = (
+                f"{E_ARROW} **ตรวจจับ actor จาก Gateway ทันที** (Event-driven)\n"
+                f"{E_ARROW} **ผู้กระทำ:** {actor.mention if hasattr(actor, 'mention') else str(actor)} "
+                f"`{actor}` (ID: `{actor.id}`)\n"
+                f"{E_SEP}\n"
+                f"{E_BELL} ปิดสิทธิ์ผู้ดูแลชั่วคราว — กำลังตรวจสอบ..."
+            )
+            em.add_field(
+                name=f"{E_SORT} เวลาที่ตรวจพบ (ms)",
+                value=f"`{_detected_ms} ms` (<t:{_detected_ms//1000}:T>)",
+                inline=True,
+            )
+            em.add_field(name=f"{E_ROLE} Feature", value=f"`{feature_key}`", inline=True)
+            em.set_footer(text=f"AdvancedMode ON | Actor: {actor} | Guild: {guild.id}")
+            em.timestamp = datetime.now(timezone.utc)
+            await send_log(guild, em)
         else:
-            # [Speed] ใช้ create_task แทน await ทำให้ on_audit_log_entry_create return ทันที
-            # check_feature ทำงานต่อใน background โดยไม่ block Gateway event ถัดไป
-            asyncio.create_task(check_feature(guild, actor, feature_key, label))
-
-        # ── Voice Abuse: ส่ง entry ไปจัดการโดยตรง ไม่ต้องยิง audit_logs ซ้ำ ──
-        if entry.action in VOICE_ABUSE_ACTIONS:
-            asyncio.create_task(_handle_voice_abuse_entry(guild, actor, entry))
+            await check_feature(guild, actor, feature_key, label)
 
         # ── BIE: บันทึกและวิเคราะห์ทุก action ──────────────────────
         bie_ak = {
@@ -2485,14 +2912,90 @@ VOICE_ABUSE_ACTIONS = {
     discord.AuditLogAction.member_move,
     discord.AuditLogAction.member_disconnect,
 }
-
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    # [Speed] ย้ายการตรวจ voice abuse ไปอยู่ใน on_audit_log_entry_create แทน
-    # ฟังก์ชันนี้ยังคงไว้เพื่อ future use (เช่น log voice join/leave ทั่วไป)
-    pass
+    guild = member.guild
+    cfg   = get_cfg(guild.id)
+    va    = cfg.get("voiceabuse", {})
+    if not va.get("enabled"):
+        return
+    async def _check():
+        try:
+            async for entry in guild.audit_logs(limit=1):
+                if entry.action not in VOICE_ABUSE_ACTIONS:
+                    return
+                actor = entry.user
+                if actor.bot or actor.id == member.id:
+                    return
+                actor_member = guild.get_member(actor.id)
+                if actor_member is None:
+                    return
+                if is_whitelisted(actor_member, cfg):
+                    return
+                now      = time.time()
+                interval = va.get("window", 10)
+                limit    = va.get("limit", 5)
+                track    = bot.voice_track[guild.id][actor.id]
+                track    = [(a, t) for a, t in track if now - t < interval]
+                track.append((str(entry.action), now))
+                bot.voice_track[guild.id][actor.id] = track
+                if len(track) >= limit:
+                    triggered_count = len(track)  # [Audit Session 5] บันทึกก่อน reset ไม่งั้น log แสดง 0
+                    detected_ms = int(time.time() * 1000)
+                    bot.voice_track[guild.id][actor.id] = []
+                    mute_min = va.get("mute_duration", 10)
+                    # [Audit Session 3] แก้: แปลง mute_duration (นาที) → seconds ให้ตรงกับ timeout_seconds parameter
+                    timeout_sec = mute_min * 60
+                    punishment  = va.get("punishment", "timeout")
+                    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+                    E_SEP   = "<:separator:661194173499703306>"
+                    E_WARN  = "<:warning:893441959673360444>"
+                    E_BELL  = "<:bell:893442623161913415>"
+                    E_SORT  = "<:rightsort:893442692460216350>"
+                    em = discord.Embed(
+                        title=f"{E_WARN} Voice Abuse ตรวจพบ",
+                        color=0xf59e0b,
+                    )
+                    em.description = (
+                        f"{E_ARROW} **ผู้กระทำ:** {actor_member.mention} `{actor_member}` (ID: `{actor_member.id}`)\n"
+                        f"{E_BELL} **จำนวน:** `{triggered_count}x` ใน `{interval}` วินาที\n"
+                        f"{E_SEP}\n"
+                        f"{E_WARN} ลงโทษ: **{punishment.upper()}** — `{timeout_sec}` วินาที"
+                    )
+                    em.add_field(
+                        name=f"{E_SORT} เวลาที่ตรวจพบ (ms)",
+                        value=f"`{detected_ms} ms` (<t:{detected_ms//1000}:T>)",
+                        inline=True,
+                    )
+                    em.add_field(
+                        name="📋 Actions ที่ตรวจพบ",
+                        value="\n".join(f"`{a}`" for a, _ in track[-5:]) or "-",
+                        inline=True,
+                    )
+                    em.set_footer(text=f"VoiceAbuse | Guild: {guild.id}")
+                    em.timestamp = datetime.now(timezone.utc)
+                    await asyncio.gather(
+                        apply_punishment(guild, actor_member,
+                            punishment,
+                            f"Voice Abuse: {triggered_count} ครั้งใน {interval} วิ",
+                            timeout_seconds=timeout_sec,
+                            detected_ms=detected_ms),
+                        send_log(guild, em),
+                        return_exceptions=True,
+                    )
+        except Exception as e:
+            log.error(f"on_voice_state_update: {e}")
+    asyncio.create_task(_check())
 
-
+# ══════════════════════════════════════════════════════════════════
+#  OTHER LOG EVENTS
+# ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
+#  OTHER LOG EVENTS — บันทึกเหตุการณ์ทั่วไปลง log channel (ไม่มีการลงโทษ)
+#  on_message_delete  → log ข้อความที่ถูกลบ (ตัดที่ 500 ตัวอักษร)
+#  on_message_edit    → log ข้อความก่อน/หลังแก้ไข (ตัดที่ 300 ตัวอักษร)
+#  on_invite_create   → log ลิงก์เชิญใหม่ พร้อมผู้สร้างและวันหมดอายุ
+# ══════════════════════════════════════════════════════════════════
 async def _handle_voice_abuse_entry(guild: discord.Guild, actor: discord.Member | discord.User, entry: discord.AuditLogEntry):
     """[Speed] ตรวจ Voice Abuse จาก audit log entry โดยตรง ไม่ต้อง HTTP query ซ้ำ"""
     cfg = get_cfg(guild.id)
@@ -2549,34 +3052,92 @@ async def _handle_voice_abuse_entry(guild: discord.Guild, actor: discord.Member 
 async def on_message_delete(message: discord.Message):
     if message.author.bot or not message.guild:
         return
-    em = discord.Embed(title="🗑️ ลบข้อความ", color=0xd29922)
-    em.add_field(name="ผู้ส่ง", value=f"{message.author.mention} ({message.author})", inline=False)
-    em.add_field(name="ห้อง", value=message.channel.mention, inline=True)
-    em.add_field(name="ข้อความ", value=message.content[:500] or "(ไม่มีข้อความ)", inline=False)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_WARN  = "<:warning:893441959673360444>"
+    E_CANCEL= "<:cancel:660789591900684329>"
+    now_ms  = int(time.time() * 1000)
+    em = discord.Embed(
+        title=f"{E_CANCEL} ลบข้อความ",
+        color=0xd29922,
+    )
+    em.description = (
+        f"{E_ARROW} **ผู้ส่ง:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
+        f"{E_ARROW} **ห้อง:** {message.channel.mention} (`{message.channel.name}`)\n"
+        f"{E_SEP}\n"
+        f"{E_WARN} **เนื้อหา:**\n>>> {message.content[:450] or '*(ไม่มีข้อความ)*'}"
+    )
     if message.attachments:
-        em.add_field(name="ไฟล์แนบ", value=", ".join(a.filename for a in message.attachments), inline=False)
+        em.add_field(
+            name="📎 ไฟล์แนบ",
+            value="\n".join(f"`{a.filename}`" for a in message.attachments),
+            inline=False,
+        )
+    em.add_field(name="🕐 เวลา (ms)", value=f"`{now_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{now_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Message ID: {message.id} | Guild: {message.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(message.guild, em, "message_delete")
-
 @bot.event
 async def on_message_edit(before: discord.Message, after: discord.Message):
     if before.author.bot or before.content == after.content or not before.guild:
         return
-    em = discord.Embed(title="✏️ แก้ไขข้อความ", color=0x5865F2)
-    em.add_field(name="ผู้ส่ง", value=f"{before.author.mention} ({before.author})", inline=False)
-    em.add_field(name="ห้อง", value=before.channel.mention, inline=True)
-    em.add_field(name="ก่อน", value=before.content[:300] or "-", inline=False)
-    em.add_field(name="หลัง", value=after.content[:300] or "-", inline=False)
-    em.add_field(name="ลิงก์", value=f"[ดูข้อความ]({after.jump_url})", inline=True)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_WARN  = "<:warning:893441959673360444>"
+    E_SORT  = "<:rightsort:893442692460216350>"
+    now_ms  = int(time.time() * 1000)
+    em = discord.Embed(
+        title=f"{E_WARN} แก้ไขข้อความ",
+        color=0x5865F2,
+    )
+    em.description = (
+        f"{E_ARROW} **ผู้ส่ง:** {before.author.mention} `{before.author}` (ID: `{before.author.id}`)\n"
+        f"{E_ARROW} **ห้อง:** {before.channel.mention} (`{before.channel.name}`)\n"
+        f"{E_SEP}"
+    )
+    em.add_field(name=f"{E_SORT} ก่อนแก้ไข", value=f">>> {before.content[:280] or '-'}", inline=False)
+    em.add_field(name=f"{E_SORT} หลังแก้ไข", value=f">>> {after.content[:280] or '-'}", inline=False)
+    em.add_field(name="🔗 ลิงก์", value=f"[กดดูข้อความ]({after.jump_url})", inline=True)
+    em.add_field(name="🕐 เวลา (ms)", value=f"`{now_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{now_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Message ID: {after.id} | Guild: {before.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(before.guild, em, "message_edit")
-
 @bot.event
 async def on_invite_create(invite: discord.Invite):
     if not invite.guild:
         return
-    em = discord.Embed(title="🔗 สร้างลิงก์เชิญ", color=0x3b82f6)
-    em.add_field(name="สร้างโดย", value=str(invite.inviter) if invite.inviter else "Integration/System", inline=True)
-    em.add_field(name="ลิงก์", value=invite.url, inline=True)
-    em.add_field(name="หมดอายุ", value=f"{invite.max_age//3600} ชั่วโมง" if invite.max_age else "ไม่มีกำหนด", inline=True)
+    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
+    E_SEP   = "<:separator:661194173499703306>"
+    E_BELL  = "<:bell:893442623161913415>"
+    E_ROLE  = "<:roles:661181617867587605>"
+    now_ms  = int(time.time() * 1000)
+    em = discord.Embed(
+        title=f"{E_BELL} สร้างลิงก์เชิญใหม่",
+        color=0x3b82f6,
+    )
+    inviter = invite.inviter
+    em.description = (
+        f"{E_ARROW} **สร้างโดย:** {inviter.mention if inviter else 'Integration/System'} "
+        f"`{inviter}` (ID: `{inviter.id if inviter else '-'}`)"f"\n"
+        f"{E_ARROW} **ลิงก์:** `{invite.url}`\n"
+        f"{E_SEP}"
+    )
+    em.add_field(
+        name=f"{E_ROLE} รายละเอียด",
+        value=(
+            f"**Code:** `{invite.code}`\n"
+            f"**หมดอายุ:** {f'{invite.max_age//3600} ชม.' if invite.max_age else 'ไม่มีกำหนด'}\n"
+            f"**ใช้ได้:** {f'{invite.max_uses} ครั้ง' if invite.max_uses else 'ไม่จำกัด'}\n"
+            f"**ชั่วคราว:** {'ใช่' if invite.temporary else 'ไม่ใช่'}"
+        ),
+        inline=True,
+    )
+    em.add_field(name="🕐 เวลา (ms)", value=f"`{now_ms}`", inline=True)
+    em.add_field(name="📅 Discord timestamp", value=f"<t:{now_ms//1000}:F>", inline=True)
+    em.set_footer(text=f"Guild: {invite.guild.id}")
+    em.timestamp = datetime.now(timezone.utc)
     await send_log(invite.guild, em, "invite_create")
 
 # ══════════════════════════════════════════════════════════════════
@@ -3314,15 +3875,25 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
         await save_guild_data(guild_id)
 
         # แจ้ง log channel
-        em_start = discord.Embed(
-            title="🔴 จัดการขั้นสูง — เริ่มทำงาน",
-            description=(
-                f"ปิดสิทธิ์ผู้ดูแลทั้งหมด **{len(target_roles)} role** ชั่วคราว\n"
-                f"กำลังตรวจสอบผู้กระทำ..."
-            ),
-            color=0xff4757,
+        _ms_adv = int(time.time() * 1000)
+        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+        E_SEP    = "<:separator:661194173499703306>"
+        E_DANGER = "<:danger:893442038815653898>"
+        E_BELL   = "<:bell:893442623161913415>"
+        E_ALERT  = "<:alert3:964184304940888085>"
+        E_SORT   = "<:rightsort:893442692460216350>"
+        E_ROLE   = "<:roles:661181617867587605>"
+        em_start = discord.Embed(title=f"{E_DANGER} จัดการขั้นสูง — เริ่มทำงาน", color=0xff4757)
+        em_start.description = (
+            f"{E_ARROW} ปิดสิทธิ์ผู้ดูแลทั้งหมด **{len(target_roles)} role** ชั่วคราว\n"
+            f"{E_BELL} กำลังตรวจสอบผู้กระทำ...\n"
+            f"{E_SEP}"
         )
-        em_start.set_footer(text=f"Feature: {feature_key} | Guild: {guild_id}")
+        em_start.add_field(name=f"{E_ROLE} Feature", value=f"`{feature_key}`", inline=True)
+        em_start.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_adv}`", inline=True)
+        em_start.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_adv//1000}:F>", inline=True)
+        em_start.set_footer(text=f"AdvancedMode | Guild: {guild_id}")
+        em_start.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em_start)
 
         # ── STEP 3: ระบุผู้กระทำ ──
@@ -3389,30 +3960,55 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
                 punishment = feat.get("punishment", "ban")
                 reason = f"[AdvLock] จัดการขั้นสูง: {offender_action} เกินกำหนด"
                 await apply_punishment(guild, offender, punishment, reason)
-                em_punish = discord.Embed(
-                    title="⚖️ จัดการขั้นสูง — ลงโทษแล้ว",
-                    description=(
-                        f"**ผู้กระทำ:** {offender.mention} (`{offender}`)\n"
-                        f"**Action:** {offender_action}\n"
-                        f"**บทลงโทษ:** {punishment.upper()}\n"
-                        f"**เหตุผล:** {reason}"
-                    ),
-                    color=0xffa502,
+                _ms_p = int(time.time() * 1000)
+                E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
+                E_SEP    = "<:separator:661194173499703306>"
+                E_CANCEL = "<:cancel:660789591900684329>"
+                E_WARN   = "<:warning:893441959673360444>"
+                E_OK     = "<:success:893442265010278401>"
+                E_SORT   = "<:rightsort:893442692460216350>"
+                em_punish = discord.Embed(title=f"{E_OK} จัดการขั้นสูง — ลงโทษแล้ว", color=0xffa502)
+                em_punish.description = (
+                    f"{E_ARROW} **ผู้กระทำ:** {offender.mention} `{offender}` (ID: `{offender.id}`)\n"
+                    f"{E_ARROW} **Action:** `{offender_action}`\n"
+                    f"{E_SEP}\n"
+                    f"{E_CANCEL} **บทลงโทษ:** `{punishment.upper()}`"
                 )
+                em_punish.add_field(name=f"{E_WARN} เหตุผล", value=f"`{reason}`", inline=False)
+                em_punish.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_p}`", inline=True)
+                em_punish.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_p//1000}:F>", inline=True)
+                em_punish.set_footer(text=f"AdvancedMode | Guild: {guild_id}")
+                em_punish.timestamp = datetime.now(timezone.utc)
                 await send_log(guild, em_punish)
             else:
-                em_nf = discord.Embed(
-                    title="⚠️ จัดการขั้นสูง — ไม่พบผู้กระทำ",
-                    description="ไม่พบผู้กระทำที่ชัดเจนใน Audit Log หรือผู้กระทำอยู่ใน Whitelist",
-                    color=0xffa502,
+                _ms_nf = int(time.time() * 1000)
+                E_ALERT = "<:alert3:964184304940888085>"
+                E_SORT  = "<:rightsort:893442692460216350>"
+                E_WL    = "<:whitelistRole:660816163818962985>"
+                em_nf = discord.Embed(title=f"{E_ALERT} จัดการขั้นสูง — ไม่พบผู้กระทำ", color=0xffa502)
+                em_nf.description = (
+                    f"<:RightDoubleArrow:893440209801330688> ไม่พบผู้กระทำที่ชัดเจนใน Audit Log\n"
+                    f"{E_WL} หรือผู้กระทำอยู่ใน **Whitelist**\n"
+                    f"<:separator:661194173499703306>"
                 )
+                em_nf.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_nf}`", inline=True)
+                em_nf.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_nf//1000}:F>", inline=True)
+                em_nf.set_footer(text=f"AdvancedMode | Guild: {guild_id}")
+                em_nf.timestamp = datetime.now(timezone.utc)
                 await send_log(guild, em_nf)
         else:
-            em_nf = discord.Embed(
-                title="⚠️ จัดการขั้นสูง — ไม่พบผู้กระทำ",
-                description="ไม่พบผู้กระทำที่ตรงกับ action นี้ใน Audit Log",
-                color=0xffa502,
+            _ms_nf2 = int(time.time() * 1000)
+            E_ALERT = "<:alert3:964184304940888085>"
+            E_SORT  = "<:rightsort:893442692460216350>"
+            em_nf = discord.Embed(title=f"{E_ALERT} จัดการขั้นสูง — ไม่พบผู้กระทำ", color=0xffa502)
+            em_nf.description = (
+                f"<:RightDoubleArrow:893440209801330688> ไม่พบผู้กระทำที่ตรงกับ action นี้ใน Audit Log\n"
+                f"<:separator:661194173499703306>"
             )
+            em_nf.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_nf2}`", inline=True)
+            em_nf.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_nf2//1000}:F>", inline=True)
+            em_nf.set_footer(text=f"AdvancedMode | Guild: {guild_id}")
+            em_nf.timestamp = datetime.now(timezone.utc)
             await send_log(guild, em_nf)
 
     except Exception as e:
@@ -3442,15 +4038,24 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
         cfg["_adv_lock_state"] = {}
         await save_guild_data(guild_id)
 
-        em_done = discord.Embed(
-            title="✅ จัดการขั้นสูง — เสร็จสิ้น",
-            description=f"คืนสิทธิ์ **{len(saved_perms)} role** กลับเหมือนเดิมแล้ว",
-            color=0x00c896,
+        _ms_done = int(time.time() * 1000)
+        E_OK   = "<:success:893442265010278401>"
+        E_ROLE = "<:roles:661181617867587605>"
+        E_SEP  = "<:separator:661194173499703306>"
+        E_SORT = "<:rightsort:893442692460216350>"
+        E_ARROW= "<:RightDoubleArrow:893440209801330688>"
+        em_done = discord.Embed(title=f"{E_OK} จัดการขั้นสูง — เสร็จสิ้น", color=0x00c896)
+        em_done.description = (
+            f"{E_ARROW} คืนสิทธิ์ **{len(saved_perms)} role** กลับเหมือนเดิมแล้ว\n"
+            f"{E_SEP}"
         )
+        em_done.add_field(name=f"{E_ROLE} Role ที่คืน", value=f"`{len(saved_perms)}` role", inline=True)
+        em_done.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_done}`", inline=True)
+        em_done.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_done//1000}:F>", inline=True)
+        em_done.set_footer(text=f"AdvancedMode | Guild: {guild_id}")
+        em_done.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em_done)
         log.info(f"[AdvLock] {guild.name}: เสร็จสิ้น คืน {len(saved_perms)} role แล้ว")
-
-
 async def api_advanced_manage(req):
     """
     POST /api/advanced-manage
