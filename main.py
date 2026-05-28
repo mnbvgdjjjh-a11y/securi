@@ -777,11 +777,11 @@ async def apply_punishment(guild: discord.Guild, member: discord.Member,
     # audit log บันทึกทันที ไม่ต้องรอ
     add_audit(guild.id, punishment.upper(), str(member), str(member.id), reason)
     _PUNISH_EMOJI = {
-        "ban":        "<:cancel:660789591900684329>",
-        "kick":       "<:purge:893442103273730059>",
-        "timeout":    "<:warning:893441959673360444>",
-        "quarantine": "<:danger:893442038815653898>",
-        "log":        "<:alert3:964184304940888085>",
+        "ban":        "❌",
+        "kick":       "🗑️",
+        "timeout":    "⚠️",
+        "quarantine": "🔴",
+        "log":        "🚨",
     }
     p_ico = _PUNISH_EMOJI.get(punishment, "🔨")
     detail_lines = [
@@ -1061,19 +1061,19 @@ async def bot_log(guild: discord.Guild, action: str, detail: str,
     ts_full      = now_dt.strftime("%d/%m/%Y %H:%M:%S") + f".{now_epoch_ms % 1000:03d} UTC"
 
     # อีโมจิชุด custom
-    E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-    E_BELL   = "<:bell:893442623161913415>"
-    E_WARN   = "<:warning:893441959673360444>"
-    E_DANGER = "<:danger:893442038815653898>"
-    E_OK     = "<:success:893442265010278401>"
-    E_ALERT  = "<:alert3:964184304940888085>"
-    E_SEP    = "<:separator:661194173499703306>"
-    E_ROLE   = "<:roles:661181617867587605>"
-    E_WL     = "<:whitelistRole:660816163818962985>"
-    E_CANCEL = "<:cancel:660789591900684329>"
-    E_PURGE  = "<:purge:893442103273730059>"
-    E_HOOK   = "<:webhook:661181620132511744>"
-    E_SORT   = "<:rightsort:893442692460216350>"
+    E_ARROW  = "⟫"
+    E_BELL   = "🔔"
+    E_WARN   = "⚠️"
+    E_DANGER = "🔴"
+    E_OK     = "✅"
+    E_ALERT  = "🚨"
+    E_SEP    = "─────────"
+    E_ROLE   = "🏷️"
+    E_WL     = "🛡️"
+    E_CANCEL = "❌"
+    E_PURGE  = "🗑️"
+    E_HOOK   = "🔗"
+    E_SORT   = "▷"
 
     if suspicious:
         color      = 0xff8c00
@@ -1120,7 +1120,7 @@ async def bot_log(guild: discord.Guild, action: str, detail: str,
     em.set_footer(text=f"Security Bot • Guild: {guild.id} • {ts_full}")
     em.timestamp = now_dt
     try:
-        await _send_embed_via_webhook(ch, em)
+        await ch.send(embed=em)
     except Exception as e:
         log.warning(f"[bot_log] ส่งไม่ได้: {e}")
 
@@ -1539,7 +1539,7 @@ async def send_log(guild: discord.Guild, embed: discord.Embed, log_type: str = N
     embed.timestamp = datetime.now(timezone.utc)
     async def _do_send():
         await asyncio.gather(
-            *[_send_embed_via_webhook(ch, embed) for ch in channels_to_send],
+            *[ch.send(embed=embed) for ch in channels_to_send],
             return_exceptions=True,
         )
     asyncio.create_task(_do_send())
@@ -1629,16 +1629,16 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
         bot.nuke_track[guild.id][track_key] = []
         adv_enabled = cfg.get("advanced_mode", {}).get(feature_key, False)
 
-        E_ALERT  = "<:alert3:964184304940888085>"
-        E_WARN   = "<:warning:893441959673360444>"
-        E_DANGER = "<:danger:893442038815653898>"
-        E_OK     = "<:success:893442265010278401>"
-        E_BELL   = "<:bell:893442623161913415>"
-        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP    = "<:separator:661194173499703306>"
-        E_SORT   = "<:rightsort:893442692460216350>"
-        E_ROLE   = "<:roles:661181617867587605>"
-        E_CANCEL = "<:cancel:660789591900684329>"
+        E_ALERT  = "🚨"
+        E_WARN   = "⚠️"
+        E_DANGER = "🔴"
+        E_OK     = "✅"
+        E_BELL   = "🔔"
+        E_ARROW  = "⟫"
+        E_SEP    = "─────────"
+        E_SORT   = "▷"
+        E_ROLE   = "🏷️"
+        E_CANCEL = "❌"
 
         # bot_log: รายงานการตรวจพบทุกครั้ง
         asyncio.create_task(bot_log(
@@ -1677,9 +1677,9 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
             timeout_sec = feat.get("timeout_duration") if punishment == "timeout" else None
             reason = f"{label}: เกิน {limit}x ใน {window}วิ"
             _PUNISH_COLOR = {"ban": 0xf85149, "kick": 0xff8c00, "timeout": 0xffa500, "quarantine": 0xa855f7, "log": 0x3b6ef8}
-            _PUNISH_ICO   = {"ban": "<:cancel:660789591900684329>", "kick": "<:purge:893442103273730059>",
-                             "timeout": "<:warning:893441959673360444>", "quarantine": "<:danger:893442038815653898>",
-                             "log": "<:alert3:964184304940888085>"}
+            _PUNISH_ICO   = {"ban": "❌", "kick": "🗑️",
+                             "timeout": "⚠️", "quarantine": "🔴",
+                             "log": "🚨"}
             p_ico   = _PUNISH_ICO.get(punishment, "🔨")
             p_color = _PUNISH_COLOR.get(punishment, 0xf85149)
             em = discord.Embed(
@@ -1910,11 +1910,11 @@ async def slash_whitelist(
     if action == "list":
         user_mentions = [f"<@{uid}>" for uid in wl.get("users", [])]
         role_mentions = [f"<@&{rid}>" for rid in wl.get("roles", [])]
-        E_OK   = "<:success:893442265010278401>"
-        E_WL   = "<:whitelistRole:660816163818962985>"
-        E_ROLE = "<:roles:661181617867587605>"
-        E_SEP  = "<:separator:661194173499703306>"
-        E_ARROW= "<:RightDoubleArrow:893440209801330688>"
+        E_OK   = "✅"
+        E_WL   = "🛡️"
+        E_ROLE = "🏷️"
+        E_SEP  = "─────────"
+        E_ARROW= "⟫"
         embed = discord.Embed(title=f"{E_OK} รายการ Whitelist", color=0x3b6ef8)
         embed.description = f"{E_ARROW} สมาชิกและยศที่ยกเว้นจากระบบ Security\n{E_SEP}"
         embed.add_field(name=f"{E_WL} สมาชิก ({len(user_mentions)})",
@@ -2091,10 +2091,10 @@ async def _check_text_spam(message: discord.Message, cfg: dict):
         await apply_punishment(message.guild, message.author,
                                feat.get("punishment","timeout"), "Anti-Text Spam")
         _ms = int(time.time() * 1000)
-        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP   = "<:separator:661194173499703306>"
-        E_WARN  = "<:warning:893441959673360444>"
-        E_SORT  = "<:rightsort:893442692460216350>"
+        E_ARROW = "⟫"
+        E_SEP   = "─────────"
+        E_WARN  = "⚠️"
+        E_SORT  = "▷"
         _em_sp = discord.Embed(title=f"{E_WARN} Anti-Text Spam", color=0xffa502)
         _em_sp.description = (
             f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
@@ -2130,11 +2130,11 @@ async def _check_mass_mentions(message: discord.Message, cfg: dict):
     await apply_punishment(message.guild, message.author,
                            feat.get("punishment","timeout"), f"Anti-Mass Mentions: {total_mentions} mentions")
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_WARN  = "<:warning:893441959673360444>"
-    E_BELL  = "<:bell:893442623161913415>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_WARN  = "⚠️"
+    E_BELL  = "🔔"
+    E_SORT  = "▷"
     _em_mm = discord.Embed(title=f"{E_WARN} Anti-Mass Mentions", color=0xffa502)
     _em_mm.description = (
         f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
@@ -2164,10 +2164,10 @@ async def _check_link_spam(message: discord.Message, cfg: dict):
         await apply_punishment(message.guild, message.author,
                                feat.get("punishment","timeout"), "Anti-Link Spam")
         _ms = int(time.time() * 1000)
-        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP   = "<:separator:661194173499703306>"
-        E_WARN  = "<:warning:893441959673360444>"
-        E_SORT  = "<:rightsort:893442692460216350>"
+        E_ARROW = "⟫"
+        E_SEP   = "─────────"
+        E_WARN  = "⚠️"
+        E_SORT  = "▷"
         _em_lk = discord.Embed(title=f"{E_WARN} Anti-Link Spam", color=0xffa502)
         _em_lk.description = (
             f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
@@ -2194,10 +2194,10 @@ async def _check_att_spam(message: discord.Message, cfg: dict):
         await apply_punishment(message.guild, message.author,
                                feat.get("punishment","timeout"), "Anti-Attachment Spam")
         _ms = int(time.time() * 1000)
-        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP   = "<:separator:661194173499703306>"
-        E_WARN  = "<:warning:893441959673360444>"
-        E_SORT  = "<:rightsort:893442692460216350>"
+        E_ARROW = "⟫"
+        E_SEP   = "─────────"
+        E_WARN  = "⚠️"
+        E_SORT  = "▷"
         _em_at = discord.Embed(title=f"{E_WARN} Anti-Attachment Spam", color=0xffa502)
         _em_at.description = (
             f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
@@ -2226,11 +2226,11 @@ async def _check_emoji_spam(message: discord.Message, cfg: dict):
     await apply_punishment(message.guild, message.author,
                            feat.get("punishment","timeout"), f"Anti-Emoji Spam: {emoji_count} emoji")
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_WARN  = "<:warning:893441959673360444>"
-    E_SORT  = "<:rightsort:893442692460216350>"
-    E_BELL  = "<:bell:893442623161913415>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_WARN  = "⚠️"
+    E_SORT  = "▷"
+    E_BELL  = "🔔"
     _em_ej = discord.Embed(title=f"{E_WARN} Anti-Emoji Spam", color=0xffa502)
     _em_ej.description = (
         f"{E_ARROW} **ผู้กระทำ:** {message.author.mention} `{message.author}` (ID: `{message.author.id}`)\n"
@@ -2367,12 +2367,12 @@ async def on_member_join(member: discord.Member):
         if len(bot.join_tracker[guild.id]) >= limit and guild.id not in bot.raid_mode:
             bot.raid_mode.add(guild.id)
             _ms = int(time.time() * 1000)
-            E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-            E_SEP    = "<:separator:661194173499703306>"
-            E_DANGER = "<:danger:893442038815653898>"
-            E_ALERT  = "<:alert3:964184304940888085>"
-            E_BELL   = "<:bell:893442623161913415>"
-            E_SORT   = "<:rightsort:893442692460216350>"
+            E_ARROW  = "⟫"
+            E_SEP    = "─────────"
+            E_DANGER = "🔴"
+            E_ALERT  = "🚨"
+            E_BELL   = "🔔"
+            E_SORT   = "▷"
             em = discord.Embed(title=f"{E_DANGER} RAID DETECTED — Raid Mode เปิดแล้ว", color=0xf85149)
             em.description = (
                 f"{E_ARROW} มีบัญชีเข้าร่วม **{limit}+ คน** ใน `{window}` วินาที\n"
@@ -2393,12 +2393,12 @@ async def on_member_join(member: discord.Member):
 
     # ── Log ──
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_OK    = "<:success:893442265010278401>"
-    E_ROLE  = "<:roles:661181617867587605>"
-    E_SORT  = "<:rightsort:893442692460216350>"
-    E_BELL  = "<:bell:893442623161913415>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_OK    = "✅"
+    E_ROLE  = "🏷️"
+    E_SORT  = "▷"
+    E_BELL  = "🔔"
     em = discord.Embed(title=f"{E_OK} สมาชิกเข้าร่วม", color=0x3fb950)
     em.set_thumbnail(url=member.display_avatar.url)
     em.description = (
@@ -2418,11 +2418,11 @@ async def _disable_raid(guild_id: int):
     guild = bot.get_guild(guild_id)
     if guild:
         _ms = int(time.time() * 1000)
-        E_OK   = "<:success:893442265010278401>"
-        E_SORT = "<:rightsort:893442692460216350>"
-        E_SEP  = "<:separator:661194173499703306>"
+        E_OK   = "✅"
+        E_SORT = "▷"
+        E_SEP  = "─────────"
         _em_rd = discord.Embed(title=f"{E_OK} Raid Mode ปิดแล้ว", color=0x3fb950)
-        _em_rd.description = f"<:RightDoubleArrow:893440209801330688> ระบบป้องกัน Raid ถูกปิดอัตโนมัติหลัง 10 นาที\n{E_SEP}"
+        _em_rd.description = f"⟫ ระบบป้องกัน Raid ถูกปิดอัตโนมัติหลัง 10 นาที\n{E_SEP}"
         _em_rd.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
         _em_rd.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
         _em_rd.timestamp = datetime.now(timezone.utc)
@@ -2468,11 +2468,11 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
         except Exception:
             pass
         _ms = int(time.time() * 1000)
-        E_DANGER = "<:danger:893442038815653898>"
-        E_CANCEL = "<:cancel:660789591900684329>"
-        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP    = "<:separator:661194173499703306>"
-        E_SORT   = "<:rightsort:893442692460216350>"
+        E_DANGER = "🔴"
+        E_CANCEL = "❌"
+        E_ARROW  = "⟫"
+        E_SEP    = "─────────"
+        E_SORT   = "▷"
         em = discord.Embed(title=f"{E_DANGER} Server Lockdown เปิดแล้ว", color=0xf85149)
         em.description = (
             f"{E_ARROW} ปิดการพิมพ์ทุกห้องชั่วคราว\n"
@@ -2501,10 +2501,10 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
                 pass
         await save_guild_data(guild.id)
         _ms = int(time.time() * 1000)
-        E_OK   = "<:success:893442265010278401>"
-        E_ARROW= "<:RightDoubleArrow:893440209801330688>"
-        E_SEP  = "<:separator:661194173499703306>"
-        E_SORT = "<:rightsort:893442692460216350>"
+        E_OK   = "✅"
+        E_ARROW= "⟫"
+        E_SEP  = "─────────"
+        E_SORT = "▷"
         em = discord.Embed(title=f"{E_OK} Server Lockdown ปิดแล้ว", color=0x3fb950)
         em.description = (
             f"{E_ARROW} คืนสิทธิ์ทุกห้องเรียบร้อยแล้ว\n"
@@ -2546,10 +2546,10 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
 async def on_member_ban(guild: discord.Guild, user: discord.User):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_CANCEL= "<:cancel:660789591900684329>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_CANCEL= "❌"
+    E_SORT  = "▷"
     em = discord.Embed(title=f"{E_CANCEL} แบนสมาชิก", color=0xef4444)
     em.description = (
         f"{E_ARROW} **ผู้ถูกแบน:** {user.mention} `{user}` (ID: `{user.id}`)\n"
@@ -2565,11 +2565,11 @@ async def on_member_remove(member: discord.Member):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     guild = member.guild
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_PURGE = "<:purge:893442103273730059>"
-    E_SORT  = "<:rightsort:893442692460216350>"
-    E_ROLE  = "<:roles:661181617867587605>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_PURGE = "🗑️"
+    E_SORT  = "▷"
+    E_ROLE  = "🏷️"
     em = discord.Embed(title=f"{E_PURGE} สมาชิกออกจาก Server", color=0xf85149)
     em.set_thumbnail(url=member.display_avatar.url)
     age_days = (datetime.now(timezone.utc) - member.created_at).days
@@ -2588,10 +2588,10 @@ async def on_member_remove(member: discord.Member):
 @bot.event
 async def on_member_unban(guild: discord.Guild, user: discord.User):
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_OK    = "<:success:893442265010278401>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_OK    = "✅"
+    E_SORT  = "▷"
     em = discord.Embed(title=f"{E_OK} ยกเลิกแบน", color=0x3fb950)
     em.description = (
         f"{E_ARROW} **ผู้ถูกยกเลิกแบน:** {user.mention} `{user}` (ID: `{user.id}`)\n"
@@ -2608,10 +2608,10 @@ async def on_guild_channel_create(channel: discord.abc.GuildChannel):
     if channel.name.startswith(DATA_CH_PREFIX):
         return
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_OK    = "<:success:893442265010278401>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_OK    = "✅"
+    E_SORT  = "▷"
     ch_type = type(channel).__name__.replace("Channel","").lower()
     em = discord.Embed(title=f"{E_OK} สร้างช่องใหม่", color=0x3fb950)
     em.description = (
@@ -2629,10 +2629,10 @@ async def on_guild_channel_create(channel: discord.abc.GuildChannel):
 async def on_guild_channel_delete(channel: discord.abc.GuildChannel):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_CANCEL= "<:cancel:660789591900684329>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_CANCEL= "❌"
+    E_SORT  = "▷"
     ch_type = type(channel).__name__.replace("Channel","").lower()
     em = discord.Embed(title=f"{E_CANCEL} ลบช่อง", color=0xef4444)
     em.description = (
@@ -2655,11 +2655,11 @@ async def on_guild_channel_update(before: discord.abc.GuildChannel, after: disco
 async def on_guild_role_create(role: discord.Role):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_OK    = "<:success:893442265010278401>"
-    E_ROLE  = "<:roles:661181617867587605>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_OK    = "✅"
+    E_ROLE  = "🏷️"
+    E_SORT  = "▷"
     em = discord.Embed(title=f"{E_OK} สร้างยศใหม่", color=0x3fb950)
     em.description = (
         f"{E_ARROW} **ชื่อยศ:** `{role.name}` (ID: `{role.id}`)\n"
@@ -2684,11 +2684,11 @@ async def on_guild_role_create(role: discord.Role):
 async def on_guild_role_delete(role: discord.Role):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_CANCEL= "<:cancel:660789591900684329>"
-    E_ROLE  = "<:roles:661181617867587605>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_CANCEL= "❌"
+    E_ROLE  = "🏷️"
+    E_SORT  = "▷"
     em = discord.Embed(title=f"{E_CANCEL} ลบยศ", color=0xef4444)
     em.description = (
         f"{E_ARROW} **ชื่อยศ:** `{role.name}` (ID: `{role.id}`)\n"
@@ -2732,13 +2732,13 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 
     if added or removed:
         _ms = int(time.time() * 1000)
-        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP   = "<:separator:661194173499703306>"
-        E_ROLE  = "<:roles:661181617867587605>"
-        E_WL    = "<:whitelistRole:660816163818962985>"
-        E_CANCEL= "<:cancel:660789591900684329>"
-        E_SORT  = "<:rightsort:893442692460216350>"
-        E_OK    = "<:success:893442265010278401>"
+        E_ARROW = "⟫"
+        E_SEP   = "─────────"
+        E_ROLE  = "🏷️"
+        E_WL    = "🛡️"
+        E_CANCEL= "❌"
+        E_SORT  = "▷"
+        E_OK    = "✅"
         em = discord.Embed(title=f"{E_ROLE} ยศสมาชิกเปลี่ยนแปลง", color=0x5865F2)
         em.description = (
             f"{E_ARROW} **สมาชิก:** {after.mention} `{after}` (ID: `{after.id}`)\n"
@@ -2769,9 +2769,9 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 
     if before.nick != after.nick:
         _ms = int(time.time() * 1000)
-        E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP   = "<:separator:661194173499703306>"
-        E_SORT  = "<:rightsort:893442692460216350>"
+        E_ARROW = "⟫"
+        E_SEP   = "─────────"
+        E_SORT  = "▷"
         em = discord.Embed(title=f"{E_SORT} เปลี่ยนชื่อเล่น", color=0x8b5cf6)
         em.description = (
             f"{E_ARROW} **สมาชิก:** {after.mention} `{after}` (ID: `{after.id}`)\n"
@@ -2900,13 +2900,13 @@ async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
         # known_offender_id ส่งตรงๆ ไม่ต้องรอ audit log
         adv_enabled = cfg.get("advanced_mode", {}).get(feature_key, False)
         _detected_ms = int(time.time() * 1000)
-        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP    = "<:separator:661194173499703306>"
-        E_DANGER = "<:danger:893442038815653898>"
-        E_BELL   = "<:bell:893442623161913415>"
-        E_ROLE   = "<:roles:661181617867587605>"
-        E_SORT   = "<:rightsort:893442692460216350>"
-        E_ALERT  = "<:alert3:964184304940888085>"
+        E_ARROW  = "⟫"
+        E_SEP    = "─────────"
+        E_DANGER = "🔴"
+        E_BELL   = "🔔"
+        E_ROLE   = "🏷️"
+        E_SORT   = "▷"
+        E_ALERT  = "🚨"
         if adv_enabled:
             asyncio.create_task(
                 do_advanced_lockdown(guild, feature_key, cfg, known_offender_id=actor.id)
@@ -2999,11 +2999,11 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                     # [Audit Session 3] แก้: แปลง mute_duration (นาที) → seconds ให้ตรงกับ timeout_seconds parameter
                     timeout_sec = mute_min * 60
                     punishment  = va.get("punishment", "timeout")
-                    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-                    E_SEP   = "<:separator:661194173499703306>"
-                    E_WARN  = "<:warning:893441959673360444>"
-                    E_BELL  = "<:bell:893442623161913415>"
-                    E_SORT  = "<:rightsort:893442692460216350>"
+                    E_ARROW = "⟫"
+                    E_SEP   = "─────────"
+                    E_WARN  = "⚠️"
+                    E_BELL  = "🔔"
+                    E_SORT  = "▷"
                     em = discord.Embed(
                         title=f"{E_WARN} Voice Abuse ตรวจพบ",
                         color=0xf59e0b,
@@ -3104,10 +3104,10 @@ async def _handle_voice_abuse_entry(guild: discord.Guild, actor: discord.Member 
 async def on_message_delete(message: discord.Message):
     if message.author.bot or not message.guild:
         return
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_WARN  = "<:warning:893441959673360444>"
-    E_CANCEL= "<:cancel:660789591900684329>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_WARN  = "⚠️"
+    E_CANCEL= "❌"
     now_ms  = int(time.time() * 1000)
     em = discord.Embed(
         title=f"{E_CANCEL} ลบข้อความ",
@@ -3134,10 +3134,10 @@ async def on_message_delete(message: discord.Message):
 async def on_message_edit(before: discord.Message, after: discord.Message):
     if before.author.bot or before.content == after.content or not before.guild:
         return
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_WARN  = "<:warning:893441959673360444>"
-    E_SORT  = "<:rightsort:893442692460216350>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_WARN  = "⚠️"
+    E_SORT  = "▷"
     now_ms  = int(time.time() * 1000)
     em = discord.Embed(
         title=f"{E_WARN} แก้ไขข้อความ",
@@ -3160,10 +3160,10 @@ async def on_message_edit(before: discord.Message, after: discord.Message):
 async def on_invite_create(invite: discord.Invite):
     if not invite.guild:
         return
-    E_ARROW = "<:RightDoubleArrow:893440209801330688>"
-    E_SEP   = "<:separator:661194173499703306>"
-    E_BELL  = "<:bell:893442623161913415>"
-    E_ROLE  = "<:roles:661181617867587605>"
+    E_ARROW = "⟫"
+    E_SEP   = "─────────"
+    E_BELL  = "🔔"
+    E_ROLE  = "🏷️"
     now_ms  = int(time.time() * 1000)
     em = discord.Embed(
         title=f"{E_BELL} สร้างลิงก์เชิญใหม่",
@@ -3928,13 +3928,13 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
 
         # แจ้ง log channel
         _ms_adv = int(time.time() * 1000)
-        E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-        E_SEP    = "<:separator:661194173499703306>"
-        E_DANGER = "<:danger:893442038815653898>"
-        E_BELL   = "<:bell:893442623161913415>"
-        E_ALERT  = "<:alert3:964184304940888085>"
-        E_SORT   = "<:rightsort:893442692460216350>"
-        E_ROLE   = "<:roles:661181617867587605>"
+        E_ARROW  = "⟫"
+        E_SEP    = "─────────"
+        E_DANGER = "🔴"
+        E_BELL   = "🔔"
+        E_ALERT  = "🚨"
+        E_SORT   = "▷"
+        E_ROLE   = "🏷️"
         em_start = discord.Embed(title=f"{E_DANGER} จัดการขั้นสูง — เริ่มทำงาน", color=0xff4757)
         em_start.description = (
             f"{E_ARROW} ปิดสิทธิ์ผู้ดูแลทั้งหมด **{len(target_roles)} role** ชั่วคราว\n"
@@ -4013,12 +4013,12 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
                 reason = f"[AdvLock] จัดการขั้นสูง: {offender_action} เกินกำหนด"
                 await apply_punishment(guild, offender, punishment, reason)
                 _ms_p = int(time.time() * 1000)
-                E_ARROW  = "<:RightDoubleArrow:893440209801330688>"
-                E_SEP    = "<:separator:661194173499703306>"
-                E_CANCEL = "<:cancel:660789591900684329>"
-                E_WARN   = "<:warning:893441959673360444>"
-                E_OK     = "<:success:893442265010278401>"
-                E_SORT   = "<:rightsort:893442692460216350>"
+                E_ARROW  = "⟫"
+                E_SEP    = "─────────"
+                E_CANCEL = "❌"
+                E_WARN   = "⚠️"
+                E_OK     = "✅"
+                E_SORT   = "▷"
                 em_punish = discord.Embed(title=f"{E_OK} จัดการขั้นสูง — ลงโทษแล้ว", color=0xffa502)
                 em_punish.description = (
                     f"{E_ARROW} **ผู้กระทำ:** {offender.mention} `{offender}` (ID: `{offender.id}`)\n"
@@ -4034,14 +4034,14 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
                 await send_log(guild, em_punish)
             else:
                 _ms_nf = int(time.time() * 1000)
-                E_ALERT = "<:alert3:964184304940888085>"
-                E_SORT  = "<:rightsort:893442692460216350>"
-                E_WL    = "<:whitelistRole:660816163818962985>"
+                E_ALERT = "🚨"
+                E_SORT  = "▷"
+                E_WL    = "🛡️"
                 em_nf = discord.Embed(title=f"{E_ALERT} จัดการขั้นสูง — ไม่พบผู้กระทำ", color=0xffa502)
                 em_nf.description = (
-                    f"<:RightDoubleArrow:893440209801330688> ไม่พบผู้กระทำที่ชัดเจนใน Audit Log\n"
+                    f"⟫ ไม่พบผู้กระทำที่ชัดเจนใน Audit Log\n"
                     f"{E_WL} หรือผู้กระทำอยู่ใน **Whitelist**\n"
-                    f"<:separator:661194173499703306>"
+                    f"─────────"
                 )
                 em_nf.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_nf}`", inline=True)
                 em_nf.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_nf//1000}:F>", inline=True)
@@ -4050,12 +4050,12 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
                 await send_log(guild, em_nf)
         else:
             _ms_nf2 = int(time.time() * 1000)
-            E_ALERT = "<:alert3:964184304940888085>"
-            E_SORT  = "<:rightsort:893442692460216350>"
+            E_ALERT = "🚨"
+            E_SORT  = "▷"
             em_nf = discord.Embed(title=f"{E_ALERT} จัดการขั้นสูง — ไม่พบผู้กระทำ", color=0xffa502)
             em_nf.description = (
-                f"<:RightDoubleArrow:893440209801330688> ไม่พบผู้กระทำที่ตรงกับ action นี้ใน Audit Log\n"
-                f"<:separator:661194173499703306>"
+                f"⟫ ไม่พบผู้กระทำที่ตรงกับ action นี้ใน Audit Log\n"
+                f"─────────"
             )
             em_nf.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms_nf2}`", inline=True)
             em_nf.add_field(name="📅 Discord timestamp", value=f"<t:{_ms_nf2//1000}:F>", inline=True)
@@ -4091,11 +4091,11 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
         await save_guild_data(guild_id)
 
         _ms_done = int(time.time() * 1000)
-        E_OK   = "<:success:893442265010278401>"
-        E_ROLE = "<:roles:661181617867587605>"
-        E_SEP  = "<:separator:661194173499703306>"
-        E_SORT = "<:rightsort:893442692460216350>"
-        E_ARROW= "<:RightDoubleArrow:893440209801330688>"
+        E_OK   = "✅"
+        E_ROLE = "🏷️"
+        E_SEP  = "─────────"
+        E_SORT = "▷"
+        E_ARROW= "⟫"
         em_done = discord.Embed(title=f"{E_OK} จัดการขั้นสูง — เสร็จสิ้น", color=0x00c896)
         em_done.description = (
             f"{E_ARROW} คืนสิทธิ์ **{len(saved_perms)} role** กลับเหมือนเดิมแล้ว\n"
