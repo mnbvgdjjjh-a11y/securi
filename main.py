@@ -50,7 +50,20 @@
 #
 #  [Session 8] Deep Scan + Bot Action Log + Blacklist Monitor + Auto-classify
 #
-#  [Session 9] Premium Embed Overhaul — ประวัติการกระทำ
+#  [Session 10] Speed Optimization — ทุก feature เร็วเท่ากัน
+#  • เพิ่ม _VOICE_ABUSE_AUDIT_ACTIONS + _FEATURE_RECORD_MAP เป็น module-level constants
+#  • on_audit_log_entry_create: จับ Voice Abuse จาก Gateway ตรงๆ (ไม่ต้อง HTTP audit_logs)
+#    → เรียก _handle_voice_abuse_entry() ผ่าน create_task ทันที
+#  • on_audit_log_entry_create: เพิ่ม record_action() ทุก action → Suspicious Tracker ครบ
+#    รวม anti_bot_add, anti_prune, anti_integration ที่เคยไม่ถูก record
+#  • on_member_join (Anti-Bot Add): ลบ HTTP audit_logs pull ออก
+#    → on_audit_log_entry_create จัดการ punish inviter แล้ว, on_member_join แค่เตะบอทออก
+#  • on_voice_state_update: ลบ HTTP audit_logs pull ออก (ย้ายไป on_audit_log_entry_create)
+#  • check_feature(): ลบ fetch_member() ออกจาก hot path
+#    → ถ้าไม่อยู่ใน cache ข้ามได้เลย (member ออกไปแล้ว)
+#  • do_advanced_lockdown STEP 2: ลบ save_guild_data() ออกจาก critical path
+#    → ไม่ควร await I/O ระหว่าง lockdown, auto_save จัดการให้ทุก 5 นาที
+#
 #  • bot_log() — เพิ่ม detected_ms / punished_ms parameter
 #  • apply_punishment() — รับ detected_ms → คำนวณ response time
 #  • check_feature() — บันทึก detected_ms ตอนตรวจพบ
@@ -799,43 +812,76 @@ async def apply_punishment(guild: discord.Guild, member: discord.Member,
         detected_ms=detected_ms,
         punished_ms=punished_ms,
     ))
+    # ── quarantine แยกออกจาก retry loop เพราะมี inner error handling เอง ──
+    # [Fix] เดิม: ถ้า member.edit() โยน Forbidden → inner except ดักไว้ → outer return ทันที
+    # → ทำให้ add_roles(bl_role) ไม่ถูกเรียกเลย แม้แค่ strip roles ล้มเหลว
+    # [Fix] ตอนนี้: strip roles และ add blacklist role แยกจากกันสมบูรณ์ ไม่มีทางข้ามขั้นตอนใดได้
+    if punishment == "quarantine":
+        cfg   = get_cfg(guild.id)
+        bl_id = cfg.get("blacklist_role_id")
+        bl_role = guild.get_role(int(bl_id)) if bl_id else None
+
+        # ── ถ้าไม่มี blacklist role → ถอดยศอย่างเดียว ไม่ทำอะไรเพิ่ม ──
+        if not bl_role:
+            log.warning(
+                f"quarantine: blacklist_role_id ไม่ได้ตั้งค่าหรือยศถูกลบไปแล้ว guild={guild.id} "
+                f"— ถอดยศอย่างเดียว (ใช้ /initbl เพื่อสร้าง blacklist role)"
+            )
+            try:
+                await member.edit(roles=[], reason=reason)
+            except Exception as ef:
+                log.error(f"quarantine strip-only error: {ef}")
+            return
+
+        _guard_key = (guild.id, member.id)
+        bot._quarantine_in_progress.add(_guard_key)
+        try:
+            # STEP A: ถอดทุกยศออก (ถ้า Forbidden ก็ยังคงไปทำ STEP B ต่อ)
+            try:
+                await member.edit(roles=[], reason=reason)
+            except discord.Forbidden:
+                log.warning(f"quarantine: strip roles Forbidden (ยศบอทอาจต่ำกว่า): {member}")
+            except discord.HTTPException as e:
+                if e.status == 429:
+                    await asyncio.sleep(getattr(e, "retry_after", 1.0) or 1.0)
+                    try:
+                        await member.edit(roles=[], reason=reason)
+                    except Exception:
+                        pass
+                else:
+                    log.warning(f"quarantine: strip roles HTTPException: {e}")
+            except Exception as eq:
+                log.warning(f"quarantine: strip roles error: {eq}")
+
+            # STEP B: ให้ blacklist role เสมอ ไม่ว่า STEP A จะสำเร็จหรือไม่
+            try:
+                await member.add_roles(bl_role, reason=reason)
+            except discord.Forbidden:
+                log.warning(f"quarantine: add blacklist role Forbidden — บอทอาจไม่มีสิทธิ์ manage_roles หรือยศ blacklist อยู่สูงกว่าบอท: {member}")
+            except discord.HTTPException as e:
+                if e.status == 429:
+                    await asyncio.sleep(getattr(e, "retry_after", 1.0) or 1.0)
+                    try:
+                        await member.add_roles(bl_role, reason=reason)
+                    except Exception as er:
+                        log.error(f"quarantine: add blacklist role retry failed: {er}")
+                else:
+                    log.error(f"quarantine: add blacklist role HTTPException: {e}")
+            except Exception as eq:
+                log.error(f"quarantine: add blacklist role error: {eq}")
+        finally:
+            bot._quarantine_in_progress.discard(_guard_key)
+        return
+
     for attempt in range(3):
         try:
             if punishment == "ban":
-                await guild.ban(member, reason=reason, delete_message_seconds=0)  # [Audit Session 2] แก้: delete_message_days ถูกลบใน discord.py เวอร์ชันใหม่
+                await guild.ban(member, reason=reason, delete_message_seconds=0)
             elif punishment == "kick":
                 await member.kick(reason=reason)
             elif punishment == "timeout":
-                # ใช้ timeout_seconds จาก config ถ้ามี ไม่งั้นใช้ mute_min
                 dur = timedelta(seconds=timeout_seconds) if timeout_seconds else timedelta(minutes=mute_min)
                 await member.timeout(dur, reason=reason)
-            elif punishment == "quarantine":
-                cfg = get_cfg(guild.id)
-                bl_id = cfg.get("blacklist_role_id")
-                bl_role = guild.get_role(int(bl_id)) if bl_id else None
-                # ── ตั้ง guard ป้องกัน on_member_update loop ──
-                _guard_key = (guild.id, member.id)
-                bot._quarantine_in_progress.add(_guard_key)
-                try:
-                    # strip roles ก่อน แล้วค่อย add blacklist role (ห้ามพร้อมกัน จะทับกัน)
-                    try:
-                        await member.edit(roles=[], reason=reason)
-                    except discord.Forbidden:
-                        log.warning(f"quarantine: strip roles Forbidden: {member}")
-                    except Exception as eq:
-                        log.warning(f"quarantine: strip roles error: {eq}")
-                    if bl_role:
-                        try:
-                            await member.add_roles(bl_role, reason=reason)
-                        except discord.Forbidden:
-                            log.warning(f"quarantine: add blacklist role Forbidden: {member}")
-                        except Exception as eq:
-                            log.warning(f"quarantine: add blacklist role error: {eq}")
-                    else:
-                        log.warning(f"quarantine: blacklist_role_id ไม่ได้ตั้งค่าใน guild {guild.id}")
-                finally:
-                    # ── คืน guard หลังเสร็จเสมอ ──
-                    bot._quarantine_in_progress.discard(_guard_key)
             elif punishment == "log":
                 pass
             return
@@ -1591,10 +1637,8 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
         return
     member = guild.get_member(actor.id)
     if member is None:
-        try:
-            member = await guild.fetch_member(actor.id)
-        except Exception:
-            return
+        # [Speed] ไม่ fetch_member ใน hot path — ถ้าไม่อยู่ใน cache แสดงว่าออกไปแล้ว ข้ามได้เลย
+        return
     cfg = get_cfg(guild.id)
     feat = cfg.get(feature_key, {})
     if not feat.get("enabled"):
@@ -2316,17 +2360,8 @@ async def on_member_join(member: discord.Member):
         if feat.get("enabled"):
             wl_bots = [int(x) for x in feat.get("bot_whitelist", []) if x]
             if member.id not in wl_bots:
-                # find who added the bot
-                try:
-                    async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.bot_add):
-                        if entry.target.id == member.id:
-                            inviter = guild.get_member(entry.user.id)
-                            if inviter and not is_whitelisted(inviter, cfg):
-                                await apply_punishment(guild, inviter, feat.get("punishment","kick"),
-                                                       f"Anti-Bot Add: เชิญบอท {member} โดยไม่ได้รับอนุญาต")
-                            break
-                except Exception as e:
-                    log.error(f"anti_bot_add audit log error: {e}")
+                # [Speed] ไม่ดึง audit log ซ้ำ — on_audit_log_entry_create จัดการ punish inviter แล้ว
+                # on_member_join แค่เตะบอทตัวนั้นออกทันที
                 try: await member.kick(reason="Anti-Bot Add: บอทไม่อยู่ใน whitelist")
                 except: pass
         return
@@ -2818,12 +2853,35 @@ _ACTION_FEATURE_MAP = {
     discord.AuditLogAction.integration_update:   ("anti_integration",    "Anti-Integration"),
 }
 
+# [Speed] Voice Abuse actions ที่ต้องจับผ่าน on_audit_log_entry_create (ไม่ต้อง HTTP pull)
+_VOICE_ABUSE_AUDIT_ACTIONS = {
+    discord.AuditLogAction.member_update,
+    discord.AuditLogAction.member_move,
+    discord.AuditLogAction.member_disconnect,
+}
+
+# [Speed] record_action key map จาก feature_key
+_FEATURE_RECORD_MAP = {
+    "anti_ban":            "ban",
+    "anti_kick":           "kick",
+    "anti_ch_create":      "ch_create",
+    "anti_ch_delete":      "ch_delete",
+    "anti_role_create":    "role_create",
+    "anti_role_delete":    "role_delete",
+    "anti_role_give":      "role_give",
+    "anti_webhook_create": "webhook",
+    "anti_webhook_delete": "webhook",
+    "anti_bot_add":        "bot_add",
+    "anti_guild_update":   "guild_update",
+}
+
 @bot.event
 async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
     """
     [Session 7] ชั้นที่ 1 (Event-driven): รับ actor จาก Gateway โดยตรง
     ไม่มี HTTP round-trip → เร็วกว่า audit_logs query ~200-500ms
     ส่ง actor ให้ทั้งระบบ A (check_feature) และระบบ B (do_advanced_lockdown)
+    [Speed] เพิ่ม: Voice Abuse + record_action ทุก action จัดการตรงนี้เลย
     """
     guild = entry.guild
     actor = entry.user
@@ -2835,6 +2893,10 @@ async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
         return
 
     try:
+        # ── [Speed] Voice Abuse: จับจาก Gateway ตรงๆ ไม่ต้อง HTTP pull ──
+        if entry.action in _VOICE_ABUSE_AUDIT_ACTIONS:
+            asyncio.create_task(_handle_voice_abuse_entry(guild, actor, entry))
+
         mapping = _ACTION_FEATURE_MAP.get(entry.action)
         if not mapping:
             return
@@ -2921,6 +2983,12 @@ async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
             bie_record(guild.id, actor.id, bie_ak)
             asyncio.create_task(bie_analyze(guild, actor.id, bie_ak))
 
+        # ── [Speed] record_action: บันทึกทุก action ให้ Suspicious Tracker ──
+        # เดิมไม่มีจุดนี้ → Suspicious Tracker ไม่ได้รับข้อมูลจาก anti_bot_add / anti_prune / anti_integration
+        rec_key = _FEATURE_RECORD_MAP.get(feature_key)
+        if rec_key:
+            record_action(guild.id, actor.id, rec_key, f"via {feature_key}")
+
     except Exception as e:
         log.error(f"on_audit_log_entry_create [{entry.action}]: {e}")
 
@@ -2934,85 +3002,11 @@ async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
 #  ใช้ voice_track เป็น sliding-window แยกจาก spam tracker
 #  VOICE_ABUSE_ACTIONS: member_update, member_move, member_disconnect
 # ══════════════════════════════════════════════════════════════════
-VOICE_ABUSE_ACTIONS = {
-    discord.AuditLogAction.member_update,
-    discord.AuditLogAction.member_move,
-    discord.AuditLogAction.member_disconnect,
-}
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    guild = member.guild
-    cfg   = get_cfg(guild.id)
-    va    = cfg.get("voiceabuse", {})
-    if not va.get("enabled"):
-        return
-    async def _check():
-        try:
-            async for entry in guild.audit_logs(limit=1):
-                if entry.action not in VOICE_ABUSE_ACTIONS:
-                    return
-                actor = entry.user
-                if actor.bot or actor.id == member.id:
-                    return
-                actor_member = guild.get_member(actor.id)
-                if actor_member is None:
-                    return
-                if is_whitelisted(actor_member, cfg):
-                    return
-                now      = time.time()
-                interval = va.get("window", 10)
-                limit    = va.get("limit", 5)
-                track    = bot.voice_track[guild.id][actor.id]
-                track    = [(a, t) for a, t in track if now - t < interval]
-                track.append((str(entry.action), now))
-                bot.voice_track[guild.id][actor.id] = track
-                if len(track) >= limit:
-                    triggered_count = len(track)  # [Audit Session 5] บันทึกก่อน reset ไม่งั้น log แสดง 0
-                    detected_ms = int(time.time() * 1000)
-                    bot.voice_track[guild.id][actor.id] = []
-                    mute_min = va.get("mute_duration", 10)
-                    # [Audit Session 3] แก้: แปลง mute_duration (นาที) → seconds ให้ตรงกับ timeout_seconds parameter
-                    timeout_sec = mute_min * 60
-                    punishment  = va.get("punishment", "timeout")
-                    E_ARROW = "⟫"
-                    E_SEP   = "─────────"
-                    E_WARN  = "⚠️"
-                    E_BELL  = "🔔"
-                    E_SORT  = "▷"
-                    em = discord.Embed(
-                        title=f"{E_WARN} Voice Abuse ตรวจพบ",
-                        color=0xf59e0b,
-                    )
-                    em.description = (
-                        f"{E_ARROW} **ผู้กระทำ:** {actor_member.mention} `{actor_member}` (ID: `{actor_member.id}`)\n"
-                        f"{E_BELL} **จำนวน:** `{triggered_count}x` ใน `{interval}` วินาที\n"
-                        f"{E_SEP}\n"
-                        f"{E_WARN} ลงโทษ: **{punishment.upper()}** — `{timeout_sec}` วินาที"
-                    )
-                    em.add_field(
-                        name=f"{E_SORT} เวลาที่ตรวจพบ (ms)",
-                        value=f"`{detected_ms} ms` (<t:{detected_ms//1000}:T>)",
-                        inline=True,
-                    )
-                    em.add_field(
-                        name="📋 Actions ที่ตรวจพบ",
-                        value="\n".join(f"`{a}`" for a, _ in track[-5:]) or "-",
-                        inline=True,
-                    )
-                    em.set_footer(text=f"VoiceAbuse | Guild: {guild.id}")
-                    em.timestamp = datetime.now(timezone.utc)
-                    await asyncio.gather(
-                        apply_punishment(guild, actor_member,
-                            punishment,
-                            f"Voice Abuse: {triggered_count} ครั้งใน {interval} วิ",
-                            timeout_seconds=timeout_sec,
-                            detected_ms=detected_ms),
-                        send_log(guild, em),
-                        return_exceptions=True,
-                    )
-        except Exception as e:
-            log.error(f"on_voice_state_update: {e}")
-    asyncio.create_task(_check())
+    # [Speed] Voice Abuse ย้ายไปจัดการใน on_audit_log_entry_create แล้ว (Gateway, ไม่ต้อง HTTP pull)
+    # on_voice_state_update นี้เหลือไว้แค่เป็น hook ในกรณีที่ต้องการ log เพิ่มเติมในอนาคต
+    pass
 
 # ══════════════════════════════════════════════════════════════════
 #  OTHER LOG EVENTS
@@ -3899,7 +3893,8 @@ async def do_advanced_lockdown(guild: discord.Guild, feature_key: str, cfg: dict
         # บันทึก state → เก็บใน cfg (serialize permissions value เป็น int)
         cfg["_adv_lock_state"] = {str(rid): p.value for rid, p in saved_perms.items()}
         bot.adv_lock_state[guild_id] = saved_perms  # keep in-memory reference too
-        await save_guild_data(guild_id)
+        # [Speed] ลบ save_guild_data() ออกจาก critical path — ไม่ควร await I/O ระหว่าง lockdown
+        # auto_save จะบันทึกให้ทุก 5 นาทีอยู่แล้ว หรือ save หลัง finally ถ้าจำเป็น
 
         # แจ้ง log channel
         _ms_adv = int(time.time() * 1000)
