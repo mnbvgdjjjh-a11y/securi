@@ -1060,64 +1060,52 @@ async def bot_log(guild: discord.Guild, action: str, detail: str,
     now_dt       = datetime.now(timezone.utc)
     ts_full      = now_dt.strftime("%d/%m/%Y %H:%M:%S") + f".{now_epoch_ms % 1000:03d} UTC"
 
-    # อีโมจิชุด custom
-    E_ARROW  = "⟫"
-    E_BELL   = "🔔"
-    E_WARN   = "⚠️"
-    E_DANGER = "🔴"
-    E_OK     = "✅"
-    E_ALERT  = "🚨"
-    E_SEP    = "─────────"
-    E_ROLE   = "🏷️"
-    E_WL     = "🛡️"
-    E_CANCEL = "❌"
-    E_PURGE  = "🗑️"
-    E_HOOK   = "🔗"
-    E_SORT   = "▷"
-
     if suspicious:
         color      = 0xff8c00
-        status_ico = E_ALERT
-        label      = "**⚠️ พฤติกรรมน่าสงสัย** — ยังไม่ดำเนินการ"
+        badge      = "🟠 พฤติกรรมน่าสงสัย"
+        status_bar = "```ansi\n\u001b[33m⚠  SUSPICIOUS — ยังไม่ดำเนินการ\u001b[0m\n```"
     else:
         color      = 0x3b6ef8
-        status_ico = E_OK
-        label      = "**✅ ดำเนินการแล้ว**"
+        badge      = "🔵 ดำเนินการแล้ว"
+        status_bar = "```ansi\n\u001b[34m✔  ACTION EXECUTED\u001b[0m\n```"
 
-    em = discord.Embed(
-        title=f"{status_ico} {action}",
-        color=color,
-    )
+    em = discord.Embed(color=color)
+    em.set_author(name=f"Security Bot  ›  {guild.name}", icon_url=guild.icon.url if guild.icon else None)
 
-    # ── ส่วนหลัก ──
+    # ── Title block ──
+    em.title = action
+
+    # ── Description: detail + status badge ──
     em.description = (
-        f"{E_ARROW} {detail}\n"
-        f"{E_SEP}\n"
-        f"{label}"
+        f"{detail}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{status_bar}"
     )
 
-    # ── เวลา detect / punish ──
-    time_lines = f"`{ts_full}`"
+    # ── เวลา field ──
+    time_val = f"🕐 **เวลาปัจจุบัน**\n> `{ts_full}`\n> <t:{now_epoch_ms//1000}:F>"
     if detected_ms is not None:
         det_dt  = datetime.fromtimestamp(detected_ms / 1000, tz=timezone.utc)
         det_str = det_dt.strftime("%H:%M:%S") + f".{detected_ms % 1000:03d}"
-        time_lines += f"\n{E_SORT} **ตรวจพบ:** `{det_str} UTC` `({detected_ms} ms epoch)`"
+        time_val += f"\n\n🔍 **ตรวจพบเมื่อ**\n> `{det_str} UTC`  (<t:{detected_ms//1000}:T>)"
     if punished_ms is not None:
         pun_dt  = datetime.fromtimestamp(punished_ms / 1000, tz=timezone.utc)
         pun_str = pun_dt.strftime("%H:%M:%S") + f".{punished_ms % 1000:03d}"
+        time_val += f"\n\n⚡ **ลงโทษเมื่อ**\n> `{pun_str} UTC`"
         if detected_ms is not None:
             delta_ms = punished_ms - detected_ms
-            time_lines += f"\n{E_SORT} **ลงโทษ:** `{pun_str} UTC` `({punished_ms} ms epoch)`"
-            time_lines += f"\n{E_BELL} **Response time:** `{delta_ms} ms`"
-        else:
-            time_lines += f"\n{E_SORT} **ลงโทษ:** `{pun_str} UTC`"
+            speed_emoji = "🚀" if delta_ms < 500 else "⏱️"
+            time_val += f"\n\n{speed_emoji} **Response Time**\n> `{delta_ms} ms`"
 
-    em.add_field(name=f"{E_ALERT} เวลา (มิลลิวินาที)", value=time_lines, inline=False)
+    em.add_field(name="📌 ข้อมูลเวลา", value=time_val, inline=False)
 
     if reason:
-        em.add_field(name=f"{E_WARN} เหตุผล", value=f"`{reason}`", inline=False)
+        em.add_field(name="📋 เหตุผล", value=f"```{reason}```", inline=False)
 
-    em.set_footer(text=f"Security Bot • Guild: {guild.id} • {ts_full}")
+    em.add_field(name="🏷️ สถานะ", value=badge, inline=True)
+    em.add_field(name="🆔 Guild ID", value=f"`{guild.id}`", inline=True)
+
+    em.set_footer(text=f"Security Bot  •  {ts_full}")
     em.timestamp = now_dt
     try:
         await ch.send(embed=em)
@@ -1629,47 +1617,33 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
         bot.nuke_track[guild.id][track_key] = []
         adv_enabled = cfg.get("advanced_mode", {}).get(feature_key, False)
 
-        E_ALERT  = "🚨"
-        E_WARN   = "⚠️"
-        E_DANGER = "🔴"
-        E_OK     = "✅"
-        E_BELL   = "🔔"
-        E_ARROW  = "⟫"
-        E_SEP    = "─────────"
-        E_SORT   = "▷"
-        E_ROLE   = "🏷️"
-        E_CANCEL = "❌"
-
         # bot_log: รายงานการตรวจพบทุกครั้ง
         asyncio.create_task(bot_log(
             guild,
-            f"{E_ALERT} ตรวจพบ: {label}",
+            f"🚨 ตรวจพบ: {label}",
             f"**ผู้กระทำ:** {member.mention} `{member}` (ID: `{member.id}`)\n"
             f"**เกินขีด:** `{len(track)}/{limit}` ครั้ง ใน `{window}` วินาที\n"
-            f"**Feature:** `{feature_key}` {E_ARROW} Advanced: `{'เปิด' if adv_enabled else 'ปิด'}`",
+            f"**Feature:** `{feature_key}` › Advanced: `{'เปิด' if adv_enabled else 'ปิด'}`",
             suspicious=True,
             detected_ms=detected_ms,
         ))
         if adv_enabled:
             asyncio.create_task(do_advanced_lockdown(guild, feature_key, cfg, known_offender_id=actor.id))
             em = discord.Embed(
-                title=f"🟣 {label} — โหมดจัดการขั้นสูง",
+                title=f"🟣 {label}",
+                description=(
+                    f"```ansi\n\u001b[35m⛔  ADVANCED LOCKDOWN TRIGGERED\u001b[0m\n```\n"
+                    f"👤 **ผู้กระทำ**\n> {member.mention} — `{member}` (`{member.id}`)\n\n"
+                    f"📊 **อัตราการกระทำ**\n> เกิน **{limit}x** ใน **{window} วินาที**\n\n"
+                    f"🔒 **การตอบสนอง**\n> ปิดสิทธิ์ผู้ดูแลชั่วคราว — กำลังตรวจสอบ..."
+                ),
                 color=0xa855f7,
             )
-            em.description = (
-                f"{E_DANGER} **ตรวจพบพฤติกรรมเกินขีด** \n"
-                f"{E_ARROW} {member.mention} `{member}` (ID: `{member.id}`)\n"
-                f"{E_ALERT} เกิน `{limit}x` ใน `{window}` วินาที\n"
-                f"{E_SEP}\n"
-                f"{E_BELL} ปิดสิทธิ์ผู้ดูแลชั่วคราว — กำลังตรวจสอบ..."
-            )
-            em.add_field(
-                name=f"{E_SORT} เวลาที่ตรวจพบ",
-                value=f"`{detected_ms} ms` (<t:{detected_ms//1000}:T>)",
-                inline=True,
-            )
-            em.add_field(name=f"{E_ROLE} Feature", value=f"`{feature_key}`", inline=True)
-            em.set_footer(text=f"AdvancedMode ON | Guild: {guild.id}")
+            em.set_author(name="Security Bot — Advanced Mode", icon_url=guild.icon.url if guild.icon else None)
+            em.add_field(name="🔍 ตรวจพบเมื่อ", value=f"<t:{detected_ms//1000}:F>\n`{detected_ms} ms`", inline=True)
+            em.add_field(name="⚙️ Feature", value=f"`{feature_key}`", inline=True)
+            em.add_field(name="🏠 Server", value=f"`{guild.name}`", inline=True)
+            em.set_footer(text=f"Advanced Mode ON  •  Guild: {guild.id}")
             em.timestamp = datetime.now(timezone.utc)
             await send_log(guild, em)
         else:
@@ -1677,29 +1651,30 @@ async def check_feature(guild: discord.Guild, actor: discord.Member | discord.Us
             timeout_sec = feat.get("timeout_duration") if punishment == "timeout" else None
             reason = f"{label}: เกิน {limit}x ใน {window}วิ"
             _PUNISH_COLOR = {"ban": 0xf85149, "kick": 0xff8c00, "timeout": 0xffa500, "quarantine": 0xa855f7, "log": 0x3b6ef8}
-            _PUNISH_ICO   = {"ban": "❌", "kick": "🗑️",
-                             "timeout": "⚠️", "quarantine": "🔴",
-                             "log": "🚨"}
-            p_ico   = _PUNISH_ICO.get(punishment, "🔨")
-            p_color = _PUNISH_COLOR.get(punishment, 0xf85149)
+            _PUNISH_ICO   = {"ban": "⛔", "kick": "👢", "timeout": "⏱️", "quarantine": "🔒", "log": "📋"}
+            _PUNISH_LABEL = {"ban": "BAN", "kick": "KICK", "timeout": "TIMEOUT", "quarantine": "QUARANTINE", "log": "LOG ONLY"}
+            _PUNISH_ANSI  = {"ban": "\u001b[31m", "kick": "\u001b[33m", "timeout": "\u001b[33m", "quarantine": "\u001b[35m", "log": "\u001b[34m"}
+            p_ico    = _PUNISH_ICO.get(punishment, "🔨")
+            p_color  = _PUNISH_COLOR.get(punishment, 0xf85149)
+            p_label  = _PUNISH_LABEL.get(punishment, punishment.upper())
+            p_ansi   = _PUNISH_ANSI.get(punishment, "\u001b[31m")
             em = discord.Embed(
-                title=f"{p_ico} {label} — {punishment.upper()}",
+                title=f"{p_ico} {label}",
+                description=(
+                    f"```ansi\n{p_ansi}◉  {p_label}\u001b[0m\n```\n"
+                    f"👤 **ผู้ถูกลงโทษ**\n> {member.mention} — `{member}` (`{member.id}`)\n\n"
+                    f"📊 **อัตราการกระทำ**\n> เกิน **{limit}x** ใน **{window} วินาที**\n\n"
+                    f"📋 **เหตุผล**\n> `{reason}`"
+                ),
                 color=p_color,
             )
-            em.description = (
-                f"{E_ARROW} {member.mention} `{member}` (ID: `{member.id}`)\n"
-                f"{E_ALERT} เกิน `{limit}x` ใน `{window}` วินาที\n"
-                f"{E_SEP}\n"
-                f"{p_ico} ลงโทษ: **{punishment.upper()}**"
-            )
-            em.add_field(
-                name=f"{E_SORT} เวลาที่ตรวจพบ",
-                value=f"`{detected_ms} ms` (<t:{detected_ms//1000}:T>)",
-                inline=True,
-            )
-            em.add_field(name=f"{E_ROLE} Feature", value=f"`{feature_key}`", inline=True)
-            em.add_field(name=f"{E_WARN} เหตุผล", value=f"`{reason}`", inline=False)
-            em.set_footer(text=f"Security Bot | Guild: {guild.id}")
+            em.set_author(name="Security Bot — Auto Action", icon_url=guild.icon.url if guild.icon else None)
+            if member.display_avatar:
+                em.set_thumbnail(url=member.display_avatar.url)
+            em.add_field(name="🔍 ตรวจพบเมื่อ", value=f"<t:{detected_ms//1000}:F>\n`{detected_ms} ms`", inline=True)
+            em.add_field(name="⚙️ Feature", value=f"`{feature_key}`", inline=True)
+            em.add_field(name="🏠 Server", value=f"`{guild.name}`", inline=True)
+            em.set_footer(text=f"Security Bot  •  Guild: {guild.id}")
             em.timestamp = datetime.now(timezone.utc)
             await asyncio.gather(
                 apply_punishment(guild, member, punishment, reason,
@@ -2501,18 +2476,18 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
                 pass
         await save_guild_data(guild.id)
         _ms = int(time.time() * 1000)
-        E_OK   = "✅"
-        E_ARROW= "⟫"
-        E_SEP  = "─────────"
-        E_SORT = "▷"
-        em = discord.Embed(title=f"{E_OK} Server Lockdown ปิดแล้ว", color=0x3fb950)
-        em.description = (
-            f"{E_ARROW} คืนสิทธิ์ทุกห้องเรียบร้อยแล้ว\n"
-            f"{E_SEP}"
+        em = discord.Embed(
+            title="🔓 Server Lockdown ปิดแล้ว",
+            description=(
+                f"```ansi\n\u001b[32m◉  LOCKDOWN LIFTED\u001b[0m\n```\n"
+                f"🔓 คืนสิทธิ์ทุกห้องเรียบร้อยแล้ว"
+            ),
+            color=0x3fb950,
         )
-        em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-        em.set_footer(text=f"ServerLockdown | Guild: {guild.id}")
+        em.set_author(name=f"{guild.name}  ›  Lockdown Log", icon_url=guild.icon.url if guild.icon else None)
+        em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+        em.set_footer(text=f"ServerLockdown  •  Guild: {guild.id}")
         em.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em)
 
@@ -2546,18 +2521,20 @@ async def do_lockdown(guild: discord.Guild, enable: bool):
 async def on_member_ban(guild: discord.Guild, user: discord.User):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_CANCEL= "❌"
-    E_SORT  = "▷"
-    em = discord.Embed(title=f"{E_CANCEL} แบนสมาชิก", color=0xef4444)
-    em.description = (
-        f"{E_ARROW} **ผู้ถูกแบน:** {user.mention} `{user}` (ID: `{user.id}`)\n"
-        f"{E_SEP}"
+    em = discord.Embed(
+        title="⛔ แบนสมาชิก",
+        description=(
+            f"```ansi\n\u001b[31m◉  MEMBER BANNED\u001b[0m\n```\n"
+            f"👤 **ผู้ถูกแบน**\n> {user.mention} — `{user}` (`{user.id}`)"
+        ),
+        color=0xef4444,
     )
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"User ID: {user.id} | Guild: {guild.id}")
+    em.set_author(name=f"{guild.name}  ›  Ban Log", icon_url=guild.icon.url if guild.icon else None)
+    if user.display_avatar:
+        em.set_thumbnail(url=user.display_avatar.url)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"User ID: {user.id}  •  Guild: {guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em, "member_ban")
 @bot.event
@@ -2565,41 +2542,42 @@ async def on_member_remove(member: discord.Member):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     guild = member.guild
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_PURGE = "🗑️"
-    E_SORT  = "▷"
-    E_ROLE  = "🏷️"
-    em = discord.Embed(title=f"{E_PURGE} สมาชิกออกจาก Server", color=0xf85149)
-    em.set_thumbnail(url=member.display_avatar.url)
     age_days = (datetime.now(timezone.utc) - member.created_at).days
-    em.description = (
-        f"{E_ARROW} **สมาชิก:** {member.mention} `{member}` (ID: `{member.id}`)\n"
-        f"{E_ARROW} **อายุบัญชี:** `{age_days} วัน`\n"
-        f"{E_SEP}"
+    roles_str = " ".join(r.mention for r in member.roles if r.name != "@everyone") or "`ไม่มียศ`"
+    em = discord.Embed(
+        title="📤 สมาชิกออกจาก Server",
+        description=(
+            f"```ansi\n\u001b[33m◉  MEMBER LEFT\u001b[0m\n```\n"
+            f"👤 **สมาชิก**\n> {member.mention} — `{member}` (`{member.id}`)\n\n"
+            f"📅 **อายุบัญชี**\n> `{age_days} วัน`"
+        ),
+        color=0xf85149,
     )
-    roles_str = " ".join(r.mention for r in member.roles if r.name != "@everyone") or "`-`"
-    em.add_field(name=f"{E_ROLE} ยศที่มี", value=roles_str[:500], inline=False)
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"User ID: {member.id} | Guild: {guild.id}")
+    em.set_author(name=f"{guild.name}  ›  Leave Log", icon_url=guild.icon.url if guild.icon else None)
+    em.set_thumbnail(url=member.display_avatar.url)
+    em.add_field(name="🏷️ ยศที่มี", value=roles_str[:500], inline=False)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"User ID: {member.id}  •  Guild: {guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em, "member_leave")
 @bot.event
 async def on_member_unban(guild: discord.Guild, user: discord.User):
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_OK    = "✅"
-    E_SORT  = "▷"
-    em = discord.Embed(title=f"{E_OK} ยกเลิกแบน", color=0x3fb950)
-    em.description = (
-        f"{E_ARROW} **ผู้ถูกยกเลิกแบน:** {user.mention} `{user}` (ID: `{user.id}`)\n"
-        f"{E_SEP}"
+    em = discord.Embed(
+        title="✅ ยกเลิกแบน",
+        description=(
+            f"```ansi\n\u001b[32m◉  BAN REMOVED\u001b[0m\n```\n"
+            f"👤 **ผู้ถูกยกเลิกแบน**\n> {user.mention} — `{user}` (`{user.id}`)"
+        ),
+        color=0x3fb950,
     )
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"User ID: {user.id} | Guild: {guild.id}")
+    em.set_author(name=f"{guild.name}  ›  Unban Log", icon_url=guild.icon.url if guild.icon else None)
+    if user.display_avatar:
+        em.set_thumbnail(url=user.display_avatar.url)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"User ID: {user.id}  •  Guild: {guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(guild, em)
 @bot.event
@@ -2608,42 +2586,40 @@ async def on_guild_channel_create(channel: discord.abc.GuildChannel):
     if channel.name.startswith(DATA_CH_PREFIX):
         return
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_OK    = "✅"
-    E_SORT  = "▷"
     ch_type = type(channel).__name__.replace("Channel","").lower()
-    em = discord.Embed(title=f"{E_OK} สร้างช่องใหม่", color=0x3fb950)
-    em.description = (
-        f"{E_ARROW} **ชื่อช่อง:** `{channel.name}` (ID: `{channel.id}`)\n"
-        f"{E_ARROW} **ประเภท:** `{ch_type}`\n"
-        f"{E_ARROW} **Category:** `{channel.category.name if channel.category else '-'}`\n"
-        f"{E_SEP}"
+    em = discord.Embed(
+        title="✅ สร้างช่องใหม่",
+        description=(
+            f"```ansi\n\u001b[32m◉  CHANNEL CREATED\u001b[0m\n```\n"
+            f"📢 **ช่อง**\n> `{channel.name}` (`{channel.id}`)\n\n"
+            f"🗂️ **ประเภท / Category**\n> `{ch_type}` › `{channel.category.name if channel.category else '-'}`"
+        ),
+        color=0x3fb950,
     )
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"Channel ID: {channel.id} | Guild: {channel.guild.id}")
+    em.set_author(name=f"{channel.guild.name}  ›  Channel Log", icon_url=channel.guild.icon.url if channel.guild.icon else None)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"Channel ID: {channel.id}  •  Guild: {channel.guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(channel.guild, em, "channel_update")
 @bot.event
 async def on_guild_channel_delete(channel: discord.abc.GuildChannel):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_CANCEL= "❌"
-    E_SORT  = "▷"
     ch_type = type(channel).__name__.replace("Channel","").lower()
-    em = discord.Embed(title=f"{E_CANCEL} ลบช่อง", color=0xef4444)
-    em.description = (
-        f"{E_ARROW} **ชื่อช่อง:** `{channel.name}` (ID: `{channel.id}`)\n"
-        f"{E_ARROW} **ประเภท:** `{ch_type}`\n"
-        f"{E_ARROW} **Category:** `{channel.category.name if channel.category else '-'}`\n"
-        f"{E_SEP}"
+    em = discord.Embed(
+        title="🗑️ ลบช่อง",
+        description=(
+            f"```ansi\n\u001b[31m◉  CHANNEL DELETED\u001b[0m\n```\n"
+            f"📢 **ช่อง**\n> `{channel.name}` (`{channel.id}`)\n\n"
+            f"🗂️ **ประเภท / Category**\n> `{ch_type}` › `{channel.category.name if channel.category else '-'}`"
+        ),
+        color=0xef4444,
     )
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"Channel ID: {channel.id} | Guild: {channel.guild.id}")
+    em.set_author(name=f"{channel.guild.name}  ›  Channel Log", icon_url=channel.guild.icon.url if channel.guild.icon else None)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"Channel ID: {channel.id}  •  Guild: {channel.guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(channel.guild, em, "channel_update")
 @bot.event
@@ -2655,58 +2631,50 @@ async def on_guild_channel_update(before: discord.abc.GuildChannel, after: disco
 async def on_guild_role_create(role: discord.Role):
     # [Session 7] check_feature ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_OK    = "✅"
-    E_ROLE  = "🏷️"
-    E_SORT  = "▷"
-    em = discord.Embed(title=f"{E_OK} สร้างยศใหม่", color=0x3fb950)
-    em.description = (
-        f"{E_ARROW} **ชื่อยศ:** `{role.name}` (ID: `{role.id}`)\n"
-        f"{E_ARROW} **สี:** `{str(role.color)}`\n"
-        f"{E_ARROW} **Position:** `{role.position}`\n"
-        f"{E_SEP}"
-    )
     danger_perms = [p for p in ["administrator","manage_guild","ban_members","kick_members",
                                  "manage_roles","manage_channels","manage_webhooks"]
                     if getattr(role.permissions, p, False)]
-    em.add_field(
-        name=f"{E_ROLE} สิทธิ์อันตราย",
-        value=(" ".join(f"`{p}`" for p in danger_perms) if danger_perms else "`ไม่มี`"),
-        inline=False,
+    danger_val = " ".join(f"`{p}`" for p in danger_perms) if danger_perms else "`ไม่มี`"
+    danger_warn = f"\n\n⚠️ **สิทธิ์อันตราย!** มี `{len(danger_perms)}` สิทธิ์" if danger_perms else ""
+    em = discord.Embed(
+        title="🏷️ สร้างยศใหม่",
+        description=(
+            f"```ansi\n\u001b[32m◉  ROLE CREATED\u001b[0m\n```\n"
+            f"🏷️ **ยศ**\n> `{role.name}` (`{role.id}`)\n\n"
+            f"🎨 **สี / Position**\n> `{str(role.color)}` › ตำแหน่ง `{role.position}`"
+            f"{danger_warn}"
+        ),
+        color=role.color.value if role.color.value else 0x3fb950,
     )
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"Role ID: {role.id} | Guild: {role.guild.id}")
+    em.set_author(name=f"{role.guild.name}  ›  Role Log", icon_url=role.guild.icon.url if role.guild.icon else None)
+    em.add_field(name="🔐 สิทธิ์อันตราย", value=danger_val, inline=False)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"Role ID: {role.id}  •  Guild: {role.guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(role.guild, em, "role_update")
 @bot.event
 async def on_guild_role_delete(role: discord.Role):
     # [Session 7] check_feature และ record_action ถูกย้ายไปจัดการใน on_audit_log_entry_create แล้ว
     _ms = int(time.time() * 1000)
-    E_ARROW = "⟫"
-    E_SEP   = "─────────"
-    E_CANCEL= "❌"
-    E_ROLE  = "🏷️"
-    E_SORT  = "▷"
-    em = discord.Embed(title=f"{E_CANCEL} ลบยศ", color=0xef4444)
-    em.description = (
-        f"{E_ARROW} **ชื่อยศ:** `{role.name}` (ID: `{role.id}`)\n"
-        f"{E_ARROW} **สี:** `{str(role.color)}`\n"
-        f"{E_ARROW} **Position:** `{role.position}`\n"
-        f"{E_SEP}"
-    )
     danger_perms = [p for p in ["administrator","manage_guild","ban_members","kick_members",
                                  "manage_roles","manage_channels","manage_webhooks"]
                     if getattr(role.permissions, p, False)]
-    em.add_field(
-        name=f"{E_ROLE} สิทธิ์ที่ยศนี้เคยมี",
-        value=(" ".join(f"`{p}`" for p in danger_perms) if danger_perms else "`ไม่มีสิทธิ์อันตราย`"),
-        inline=False,
+    danger_val = " ".join(f"`{p}`" for p in danger_perms) if danger_perms else "`ไม่มีสิทธิ์อันตราย`"
+    em = discord.Embed(
+        title="🗑️ ลบยศ",
+        description=(
+            f"```ansi\n\u001b[31m◉  ROLE DELETED\u001b[0m\n```\n"
+            f"🏷️ **ยศ**\n> `{role.name}` (`{role.id}`)\n\n"
+            f"🎨 **สี / Position**\n> `{str(role.color)}` › ตำแหน่ง `{role.position}`"
+        ),
+        color=0xef4444,
     )
-    em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-    em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-    em.set_footer(text=f"Role ID: {role.id} | Guild: {role.guild.id}")
+    em.set_author(name=f"{role.guild.name}  ›  Role Log", icon_url=role.guild.icon.url if role.guild.icon else None)
+    em.add_field(name="🔐 สิทธิ์ที่ยศนี้เคยมี", value=danger_val, inline=False)
+    em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+    em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+    em.set_footer(text=f"Role ID: {role.id}  •  Guild: {role.guild.id}")
     em.timestamp = datetime.now(timezone.utc)
     await send_log(role.guild, em, "role_update")
 @bot.event
@@ -2732,36 +2700,41 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 
     if added or removed:
         _ms = int(time.time() * 1000)
-        E_ARROW = "⟫"
-        E_SEP   = "─────────"
-        E_ROLE  = "🏷️"
-        E_WL    = "🛡️"
-        E_CANCEL= "❌"
-        E_SORT  = "▷"
-        E_OK    = "✅"
-        em = discord.Embed(title=f"{E_ROLE} ยศสมาชิกเปลี่ยนแปลง", color=0x5865F2)
-        em.description = (
-            f"{E_ARROW} **สมาชิก:** {after.mention} `{after}` (ID: `{after.id}`)\n"
-            f"{E_SEP}"
+        danger = [r for r in added if any(getattr(r.permissions, p, False)
+                  for p in ["administrator","manage_guild","ban_members","kick_members",
+                            "manage_roles","manage_channels","manage_webhooks"])] if added else []
+        has_danger = len(danger) > 0
+        em = discord.Embed(
+            title="🏷️ ยศสมาชิกเปลี่ยนแปลง",
+            description=(
+                f"```ansi\n\u001b[{'31m⚠  DANGEROUS ROLE ASSIGNED' if has_danger else '34m◉  ROLE UPDATED'}\u001b[0m\n```\n"
+                f"👤 **สมาชิก**\n> {after.mention} — `{after}` (`{after.id}`)"
+            ),
+            color=0xff4757 if has_danger else 0x5865F2,
         )
+        em.set_author(name=f"{guild.name}  ›  Role Update Log", icon_url=guild.icon.url if guild.icon else None)
+        em.set_thumbnail(url=after.display_avatar.url)
         if added:
-            danger = [r for r in added if any(getattr(r.permissions, p, False)
-                      for p in ["administrator","manage_guild","ban_members","kick_members",
-                                "manage_roles","manage_channels","manage_webhooks"])]
-            val = " ".join(r.mention for r in added)
-            name = f"{E_OK} ได้รับยศ{f' ⚠️ มีสิทธิ์อันตราย ({len(danger)} ยศ)' if danger else ''}"
-            em.add_field(name=name, value=val[:500], inline=False)
+            danger_tag = f"  ⚠️ **{len(danger)} สิทธิ์อันตราย!**" if has_danger else ""
+            em.add_field(
+                name=f"✅ ได้รับยศ{danger_tag}",
+                value=" ".join(r.mention for r in added)[:500],
+                inline=False,
+            )
         if removed:
-            em.add_field(name=f"{E_CANCEL} ถูกถอดยศ",
-                         value=" ".join(r.mention for r in removed)[:500], inline=False)
-        em.add_field(name=f"{E_SORT} เวลา (ms)", value=f"`{_ms}`", inline=True)
-        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-        em.set_footer(text=f"User ID: {after.id} | Guild: {guild.id}")
+            em.add_field(
+                name="❌ ถูกถอดยศ",
+                value=" ".join(r.mention for r in removed)[:500],
+                inline=False,
+            )
+        em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+        em.set_footer(text=f"User ID: {after.id}  •  Guild: {guild.id}")
         em.timestamp = datetime.now(timezone.utc)
         async def _audit_log_who():
             try:
                 async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
-                    em.add_field(name="โดย", value=str(entry.user), inline=True)
+                    em.add_field(name="👮 ดำเนินการโดย", value=str(entry.user), inline=True)
             except Exception:
                 pass
         asyncio.create_task(_audit_log_who())
@@ -2769,19 +2742,21 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 
     if before.nick != after.nick:
         _ms = int(time.time() * 1000)
-        E_ARROW = "⟫"
-        E_SEP   = "─────────"
-        E_SORT  = "▷"
-        em = discord.Embed(title=f"{E_SORT} เปลี่ยนชื่อเล่น", color=0x8b5cf6)
-        em.description = (
-            f"{E_ARROW} **สมาชิก:** {after.mention} `{after}` (ID: `{after.id}`)\n"
-            f"{E_SEP}"
+        em = discord.Embed(
+            title="✏️ เปลี่ยนชื่อเล่น",
+            description=(
+                f"```ansi\n\u001b[36m◉  NICKNAME CHANGED\u001b[0m\n```\n"
+                f"👤 **สมาชิก**\n> {after.mention} — `{after}` (`{after.id}`)"
+            ),
+            color=0x8b5cf6,
         )
-        em.add_field(name=f"{E_SORT} ก่อน", value=f"`{before.nick or '(ไม่มี)'}`", inline=True)
-        em.add_field(name=f"{E_SORT} หลัง",  value=f"`{after.nick  or '(ไม่มี)'}`", inline=True)
-        em.add_field(name="🕐 เวลา (ms)", value=f"`{_ms}`", inline=True)
-        em.add_field(name="📅 Discord timestamp", value=f"<t:{_ms//1000}:F>", inline=True)
-        em.set_footer(text=f"User ID: {after.id} | Guild: {guild.id}")
+        em.set_author(name=f"{guild.name}  ›  Nickname Log", icon_url=guild.icon.url if guild.icon else None)
+        em.set_thumbnail(url=after.display_avatar.url)
+        em.add_field(name="📝 ก่อน", value=f"`{before.nick or '(ไม่มี)'}`", inline=True)
+        em.add_field(name="📝 หลัง", value=f"`{after.nick or '(ไม่มี)'}`", inline=True)
+        em.add_field(name="🕐 เวลา", value=f"<t:{_ms//1000}:F>", inline=True)
+        em.add_field(name="📅 Relative", value=f"<t:{_ms//1000}:R>", inline=True)
+        em.set_footer(text=f"User ID: {after.id}  •  Guild: {guild.id}")
         em.timestamp = datetime.now(timezone.utc)
         await send_log(guild, em)
 
@@ -4647,8 +4622,11 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 .cat-active-count.general{color:var(--success);}
 
 /* BOTTOM NAV (mobile) */
-#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);z-index:200;
-  background:var(--surface);border-top:1px solid var(--border);padding:0 4px;}
+#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(10,16,32,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,0.08);
+  padding:0 0 env(safe-area-inset-bottom,0);
+  box-shadow:0 -4px 24px rgba(0,0,0,0.4);}
 
 /* ROLE INSPECTOR */
 .ri-role-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);
@@ -4668,17 +4646,25 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
   border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;}
 .ri-badge-no{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(255,71,87,.25);
   border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;}
-.bnav-inner{display:flex;align-items:stretch;height:100%;}
-.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
-  color:var(--muted2);font-size:10px;font-weight:500;transition:color .15s;border-radius:8px;margin:4px 2px;user-select:none;}
-.bnav-item:hover,.bnav-item.active{color:var(--primary-light);}
-.bnav-ic{font-size:17px;width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;transition:background .15s;}
-.bnav-ic svg{width:17px;height:17px;stroke-width:1.8;}
-.bnav-item.active .bnav-ic{background:var(--primary-glow);}
+.bnav-inner{display:flex;align-items:stretch;height:72px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;
+  color:rgba(255,255,255,0.4);font-size:11px;font-weight:600;transition:all .18s;
+  border-radius:0;margin:0;user-select:none;-webkit-tap-highlight-color:transparent;
+  padding:8px 4px;position:relative;}
+.bnav-item::before{content:'';position:absolute;top:0;left:10%;right:10%;height:2px;
+  background:var(--primary-light);border-radius:0 0 3px 3px;opacity:0;transition:opacity .18s;}
+.bnav-item:active{background:rgba(255,255,255,0.05);}
+.bnav-item.active{color:var(--primary-light);}
+.bnav-item.active::before{opacity:1;}
+.bnav-ic{width:36px;height:32px;display:flex;align-items:center;justify-content:center;
+  border-radius:10px;transition:background .18s;}
+.bnav-ic svg{width:22px;height:22px;stroke-width:1.8;}
+.bnav-item.active .bnav-ic{background:rgba(91,133,255,0.18);}
 
 @media(max-width:768px){
+  html,body{height:100%;overflow-x:hidden;}
   #sidebar{display:none;}
-  #main{margin-left:0;padding-bottom:var(--nav-h);}
+  #main{margin-left:0;padding-bottom:calc(72px + env(safe-area-inset-bottom,0));}
   #bottom-nav{display:flex;}
   .main-head{padding:14px 14px 0;}
   .main-body{padding:14px 14px 24px;}
@@ -4686,6 +4672,7 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
   .feature-grid{grid-template-columns:1fr;}
   .logch-grid{grid-template-columns:1fr;}
   #category-cards{grid-template-columns:1fr!important;}
+  #fab-save{bottom:calc(82px + env(safe-area-inset-bottom,0));right:16px;}
 }
 </style>
 </head>
