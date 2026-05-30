@@ -4489,6 +4489,299 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
 @keyframes btn-wobble{0%,100%{transform:scaleX(1)}30%{transform:scaleX(1.12) scaleY(.9)}60%{transform:scaleX(.95) scaleY(1.05)}}
 @keyframes btn-draw{0%{stroke-dashoffset:60}100%{stroke-dashoffset:0}}
 
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM SECURITY ACTION ICONS — SVG Animated System v1.0
+   9 actions: Ban, Kick, Timeout, Quarantine, Lockdown,
+              Shield, Anti-Raid, Anti-Spam, Suspicious
+   3 states each: idle / hover / click
+   Hardware-accelerated · 60fps · Dark-mode ready
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Shared icon container ── */
+.sai{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;user-select:none;
+  will-change:transform;position:relative;flex-shrink:0;}
+.sai svg{display:block;overflow:visible;shape-rendering:geometricPrecision;}
+.sai *{transform-box:fill-box;transform-origin:center center;}
+
+/* ── touch / prefers-reduced-motion guards ── */
+@media (prefers-reduced-motion:reduce){
+  .sai *{animation-duration:.001ms!important;transition-duration:.001ms!important;}
+}
+
+/* ════ BAN — Hammer + person disappears ════ */
+/* hammer idle: gentle sway */
+@keyframes ban-hammer-idle{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+/* hammer hover: speed up */
+@keyframes ban-hammer-hover{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}}
+/* hammer click: swing down hard */
+@keyframes ban-hammer-click{
+  0%{transform:rotate(-25deg) translateY(-4px)}
+  40%{transform:rotate(18deg) translateY(2px)}
+  60%{transform:rotate(5deg) translateY(0)}
+  100%{transform:rotate(-5deg) translateY(0)}
+}
+/* person click: flash then shrink away */
+@keyframes ban-person-click{
+  0%{opacity:1;transform:scale(1)}
+  35%{opacity:1;transform:scale(1.15)}
+  60%{opacity:0;transform:scale(0) translateY(6px)}
+  100%{opacity:0;transform:scale(0)}
+}
+/* person idle: subtle breathe */
+@keyframes ban-person-idle{0%,100%{opacity:.85}50%{opacity:1}}
+/* person return after click */
+@keyframes ban-person-return{0%{opacity:0;transform:scale(0)}100%{opacity:.85;transform:scale(1)}}
+
+.sai-ban .ban-hammer{animation:ban-hammer-idle 2.4s ease-in-out infinite;}
+.sai-ban:hover .ban-hammer{animation:ban-hammer-hover 1.1s ease-in-out infinite;}
+.sai-ban.sai-clicking .ban-hammer{animation:ban-hammer-click .5s cubic-bezier(.36,.07,.19,.97) both;}
+.sai-ban .ban-person{animation:ban-person-idle 2.4s ease-in-out infinite;}
+.sai-ban.sai-clicking .ban-person{animation:ban-person-click .6s ease-out both;}
+.sai-ban.sai-return .ban-person{animation:ban-person-return .4s ease-out .1s both;}
+
+/* ════ KICK — Foot + person flies off ════ */
+@keyframes kick-foot-idle{0%,100%{transform:translateX(0)}50%{transform:translateX(-2px)}}
+@keyframes kick-foot-hover{0%,100%{transform:translateX(-3px)}50%{transform:translateX(1px)}}
+@keyframes kick-foot-click{
+  0%{transform:translateX(-8px) rotate(-15deg)}
+  45%{transform:translateX(6px) rotate(8deg)}
+  75%{transform:translateX(0) rotate(0)}
+  100%{transform:translateX(-2px)}
+}
+@keyframes kick-person-click{
+  0%{transform:translateX(0) rotate(0);opacity:1}
+  10%{transform:translateX(3px) rotate(5deg);opacity:1}
+  50%{transform:translateX(16px) rotate(25deg);opacity:.5}
+  80%{transform:translateX(24px) rotate(40deg);opacity:0}
+  100%{transform:translateX(24px);opacity:0}
+}
+@keyframes kick-person-return{
+  0%{transform:translateX(24px);opacity:0}
+  100%{transform:translateX(0) rotate(0);opacity:1}
+}
+@keyframes kick-person-idle{0%,100%{transform:translateX(0)}60%{transform:translateX(1px)}}
+
+.sai-kick .kick-foot{animation:kick-foot-idle 2s ease-in-out infinite;}
+.sai-kick:hover .kick-foot{animation:kick-foot-hover .9s ease-in-out infinite;}
+.sai-kick.sai-clicking .kick-foot{animation:kick-foot-click .55s cubic-bezier(.34,1.56,.64,1) both;}
+.sai-kick .kick-person{animation:kick-person-idle 2s ease-in-out infinite;}
+.sai-kick.sai-clicking .kick-person{animation:kick-person-click .65s ease-out both;}
+.sai-kick.sai-return .kick-person{animation:kick-person-return .35s ease-in both;}
+
+/* ════ TIMEOUT — Clock face + spinning hands ════ */
+@keyframes tout-hand-idle{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes tout-ring-idle{0%,100%{stroke-dashoffset:62}50%{stroke-dashoffset:50}}
+@keyframes tout-hand-hover{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes tout-ring-click{
+  0%{stroke-dashoffset:62;stroke:#ffa502}
+  50%{stroke-dashoffset:0;stroke:#ff4757}
+  100%{stroke-dashoffset:62;stroke:#ffa502}
+}
+@keyframes tout-scale-click{
+  0%{transform:scale(1)}
+  30%{transform:scale(1.18)}
+  70%{transform:scale(.95)}
+  100%{transform:scale(1)}
+}
+
+.sai-timeout .tout-min-hand{animation:tout-hand-idle 8s linear infinite;transform-origin:50% 68%;}
+.sai-timeout .tout-hr-hand{animation:tout-hand-idle 96s linear infinite;transform-origin:50% 68%;}
+.sai-timeout .tout-ring{stroke-dasharray:62;animation:tout-ring-idle 3s ease-in-out infinite;}
+.sai-timeout:hover .tout-min-hand{animation:tout-hand-hover 2s linear infinite;}
+.sai-timeout:hover .tout-hr-hand{animation:tout-hand-hover 24s linear infinite;}
+.sai-timeout.sai-clicking .tout-ring{animation:tout-ring-click .8s ease both;}
+.sai-timeout.sai-clicking .tout-body{animation:tout-scale-click .5s cubic-bezier(.34,1.56,.64,1) both;}
+
+/* ════ QUARANTINE — Cage drops + lock closes ════ */
+@keyframes quar-cage-idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@keyframes quar-cage-hover{0%,100%{transform:translateY(-2px)}50%{transform:translateY(1px)}}
+@keyframes quar-cage-click{
+  0%{transform:translateY(-10px);opacity:.6}
+  55%{transform:translateY(2px);opacity:1}
+  80%{transform:translateY(-1px)}
+  100%{transform:translateY(0)}
+}
+@keyframes quar-lock-idle{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes quar-lock-click{
+  0%{transform:scale(0) rotate(-20deg);opacity:0}
+  60%{transform:scale(1.15) rotate(5deg);opacity:1}
+  85%{transform:scale(.95)}
+  100%{transform:scale(1) rotate(0);opacity:1}
+}
+@keyframes quar-shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-2px)}
+  40%{transform:translateX(2px)}
+  60%{transform:translateX(-1px)}
+}
+
+.sai-quarantine .quar-cage{animation:quar-cage-idle 2.5s ease-in-out infinite;}
+.sai-quarantine:hover .quar-cage{animation:quar-cage-hover 1s ease-in-out infinite;}
+.sai-quarantine.sai-clicking .quar-cage{animation:quar-cage-click .55s cubic-bezier(.36,.07,.19,.97) both;}
+.sai-quarantine .quar-lock{animation:quar-lock-idle 2.5s ease-in-out infinite;}
+.sai-quarantine.sai-clicking .quar-lock{animation:quar-lock-click .6s cubic-bezier(.34,1.56,.64,1) .3s both;}
+.sai-quarantine.sai-return{animation:quar-shake .4s ease both;}
+
+/* ════ LOCKDOWN — Door closes + key rotates ════ */
+@keyframes ld-door-idle{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.03)}}
+@keyframes ld-door-hover{0%,100%{transform:scaleX(1.05)}50%{transform:scaleX(.97)}}
+@keyframes ld-door-click{
+  0%{transform:scaleX(1.15) translateX(-2px)}
+  50%{transform:scaleX(.92) translateX(1px)}
+  75%{transform:scaleX(1.04)}
+  100%{transform:scaleX(1)}
+}
+@keyframes ld-key-idle{0%,100%{transform:rotate(0)}50%{transform:rotate(8deg)}}
+@keyframes ld-key-click{
+  0%{transform:rotate(-90deg);opacity:.5}
+  70%{transform:rotate(20deg)}
+  85%{transform:rotate(-5deg)}
+  100%{transform:rotate(0);opacity:1}
+}
+@keyframes ld-bolt-click{
+  0%{transform:translateY(0)}
+  50%{transform:translateY(-4px)}
+  100%{transform:translateY(0)}
+}
+
+.sai-lockdown .ld-door{animation:ld-door-idle 3s ease-in-out infinite;transform-origin:left center;}
+.sai-lockdown:hover .ld-door{animation:ld-door-hover 1.2s ease-in-out infinite;}
+.sai-lockdown.sai-clicking .ld-door{animation:ld-door-click .55s cubic-bezier(.36,.07,.19,.97) both;}
+.sai-lockdown .ld-key{animation:ld-key-idle 3s ease-in-out infinite;}
+.sai-lockdown.sai-clicking .ld-key{animation:ld-key-click .65s cubic-bezier(.34,1.56,.64,1) .2s both;}
+.sai-lockdown.sai-clicking .ld-bolt{animation:ld-bolt-click .4s ease .55s both;}
+
+/* ════ SHIELD — Pulse ring + inner glow ════ */
+@keyframes shield-pulse-idle{
+  0%,100%{transform:scale(1);opacity:.6}
+  50%{transform:scale(1.15);opacity:0}
+}
+@keyframes shield-body-idle{0%,100%{filter:drop-shadow(0 0 2px currentColor)}50%{filter:drop-shadow(0 0 5px currentColor)}}
+@keyframes shield-hover{0%,100%{transform:scale(1.08)}50%{transform:scale(1)}}
+@keyframes shield-click{
+  0%{transform:scale(1)}
+  20%{transform:scale(1.25)}
+  50%{transform:scale(.95)}
+  75%{transform:scale(1.08)}
+  100%{transform:scale(1)}
+}
+@keyframes shield-ring-click{
+  0%{transform:scale(1);opacity:.8}
+  100%{transform:scale(2.2);opacity:0}
+}
+@keyframes shield-check-click{
+  0%{stroke-dashoffset:20;opacity:0}
+  100%{stroke-dashoffset:0;opacity:1}
+}
+
+.sai-shield .sh-pulse{animation:shield-pulse-idle 2s ease-in-out infinite;}
+.sai-shield .sh-pulse2{animation:shield-pulse-idle 2s ease-in-out .7s infinite;}
+.sai-shield .sh-body{animation:shield-body-idle 2s ease-in-out infinite;}
+.sai-shield:hover .sh-body{animation:shield-hover 1s ease-in-out infinite;}
+.sai-shield.sai-clicking .sh-body{animation:shield-click .6s cubic-bezier(.34,1.56,.64,1) both;}
+.sai-shield.sai-clicking .sh-ring{animation:shield-ring-click .7s ease-out both;}
+.sai-shield.sai-clicking .sh-check{stroke-dasharray:20;animation:shield-check-click .4s ease .3s both;}
+
+/* ════ ANTI-RAID — Radar sweep ════ */
+@keyframes radar-sweep-idle{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes radar-blip-idle{
+  0%,100%{opacity:0;transform:scale(0)}
+  50%{opacity:1;transform:scale(1)}
+}
+@keyframes radar-hover{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes radar-ring-click{
+  0%{transform:scale(1);opacity:1}
+  100%{transform:scale(1.4);opacity:0}
+}
+@keyframes radar-alert-click{
+  0%,100%{fill:var(--warn)}
+  50%{fill:#fff}
+}
+
+.sai-antiraid .radar-sweep{animation:radar-sweep-idle 4s linear infinite;transform-origin:50% 50%;}
+.sai-antiraid:hover .radar-sweep{animation:radar-hover 1.5s linear infinite;}
+.sai-antiraid.sai-clicking .radar-sweep{animation:radar-hover .8s linear infinite;}
+.sai-antiraid .radar-blip{animation:radar-blip-idle 2s ease-in-out .4s infinite;}
+.sai-antiraid .radar-blip2{animation:radar-blip-idle 2s ease-in-out 1.2s infinite;}
+.sai-antiraid.sai-clicking .radar-ring{animation:radar-ring-click .6s ease-out both;}
+.sai-antiraid.sai-clicking .radar-alert{animation:radar-alert-click .3s ease infinite;}
+
+/* ════ ANTI-SPAM — Messages deleted with X ════ */
+@keyframes spam-msg-idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@keyframes spam-msg2-idle{0%,100%{transform:translateY(0)}50%{transform:translateY(1.5px)}}
+@keyframes spam-cross-idle{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:.8;transform:scale(1)}}
+@keyframes spam-msg-click{
+  0%{transform:translateX(0);opacity:1}
+  30%{transform:translateX(3px);opacity:1}
+  70%{transform:translateX(10px) scaleX(.3);opacity:0}
+  100%{transform:translateX(10px);opacity:0}
+}
+@keyframes spam-msg2-click{
+  0%{transform:translateX(0);opacity:1}
+  20%{transform:translateX(2px);opacity:1}
+  60%{transform:translateX(12px) scaleX(.2);opacity:0}
+  100%{opacity:0}
+}
+@keyframes spam-cross-click{
+  0%{transform:scale(0) rotate(-45deg);opacity:0}
+  60%{transform:scale(1.3) rotate(5deg);opacity:1}
+  80%{transform:scale(.95)}
+  100%{transform:scale(1) rotate(0);opacity:1}
+}
+@keyframes spam-msg-return{0%{transform:translateX(10px);opacity:0}100%{transform:translateX(0);opacity:1}}
+
+.sai-antispam .spam-msg1{animation:spam-msg-idle 2.2s ease-in-out infinite;}
+.sai-antispam .spam-msg2{animation:spam-msg2-idle 2.2s ease-in-out .3s infinite;}
+.sai-antispam .spam-cross{animation:spam-cross-idle 2.2s ease-in-out infinite;}
+.sai-antispam.sai-clicking .spam-msg1{animation:spam-msg-click .5s ease both;}
+.sai-antispam.sai-clicking .spam-msg2{animation:spam-msg2-click .5s ease .1s both;}
+.sai-antispam.sai-clicking .spam-cross{animation:spam-cross-click .55s cubic-bezier(.34,1.56,.64,1) .2s both;}
+.sai-antispam.sai-return .spam-msg1{animation:spam-msg-return .3s ease both;}
+.sai-antispam.sai-return .spam-msg2{animation:spam-msg-return .3s ease .1s both;}
+
+/* ════ SUSPICIOUS DETECTION — Magnifier scan + alert dot ════ */
+@keyframes sus-scan-idle{
+  0%,100%{transform:translateX(0) translateY(0)}
+  25%{transform:translateX(2px) translateY(-1px)}
+  75%{transform:translateX(-2px) translateY(1px)}
+}
+@keyframes sus-dot-idle{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.4);opacity:.7}
+}
+@keyframes sus-scan-hover{
+  0%,100%{transform:translateX(-3px) translateY(-2px)}
+  50%{transform:translateX(3px) translateY(2px)}
+}
+@keyframes sus-click-scan{
+  0%{transform:translateX(0) scale(1)}
+  20%{transform:translateX(-4px) translateY(-3px) scale(1.12)}
+  50%{transform:translateX(4px) translateY(2px) scale(1.08)}
+  80%{transform:translateX(0) scale(1.15)}
+  100%{transform:scale(1)}
+}
+@keyframes sus-dot-click{
+  0%,100%{fill:#ff4757;r:2}
+  33%{fill:#fff;r:3}
+  66%{fill:#ffa502;r:2.5}
+}
+@keyframes sus-ring-click{
+  0%{transform:scale(1);opacity:.7}
+  100%{transform:scale(1.8);opacity:0}
+}
+
+.sai-suspicious .sus-glass{animation:sus-scan-idle 3s ease-in-out infinite;}
+.sai-suspicious:hover .sus-glass{animation:sus-scan-hover 1.4s ease-in-out infinite;}
+.sai-suspicious.sai-clicking .sus-glass{animation:sus-click-scan .7s ease both;}
+.sai-suspicious .sus-dot{animation:sus-dot-idle 1.5s ease-in-out infinite;}
+.sai-suspicious.sai-clicking .sus-dot{animation:sus-dot-click .4s steps(1) 3 both;}
+.sai-suspicious.sai-clicking .sus-ring{animation:sus-ring-click .6s ease-out both;}
+
+/* ── punish-btn size override for SAI icons ── */
+.punish-btn .sai{width:20px;height:20px;pointer-events:none;}
+.punish-btn .sai svg{width:20px;height:20px;}
+
 /* LOGIN */
 #login-view{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(ellipse 80% 50% at 30% 20%,rgba(59,110,248,.12),transparent),
@@ -5827,13 +6120,101 @@ function handleSessionExpired() {
 }
 const setToken = t => sessionStorage.setItem('sb_token', t);
 
-// ─── PUNISHMENT OPTIONS ───────────────────────────────────────────
+// ─── PUNISHMENT OPTIONS — SVG Animated Icons ──────────────────────
+// SAI = Security Action Icon  |  3 states: idle / hover / click
+const SAI_ICONS = {
+  ban: `<span class="sai sai-ban" data-sai="ban">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- person silhouette -->
+      <g class="ban-person">
+        <circle cx="9" cy="6" r="2.5" fill="currentColor" opacity=".85"/>
+        <path d="M5 16c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".85"/>
+      </g>
+      <!-- hammer -->
+      <g class="ban-hammer">
+        <rect x="13" y="4" width="7" height="4" rx="1" fill="currentColor" opacity=".9"/>
+        <line x1="16.5" y1="8" x2="14" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </span>`,
+
+  kick: `<span class="sai sai-kick" data-sai="kick">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- person -->
+      <g class="kick-person">
+        <circle cx="7" cy="6" r="2.5" fill="currentColor" opacity=".9"/>
+        <path d="M4 13c0-1.7 1.3-3 3-3s3 1.3 3 3v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <line x1="7" y1="15" x2="7" y2="19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </g>
+      <!-- foot / leg kick -->
+      <g class="kick-foot">
+        <path d="M13 14 L20 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M20 12 L21 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </span>`,
+
+  timeout: `<span class="sai sai-timeout" data-sai="timeout">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- clock body -->
+      <g class="tout-body">
+        <circle cx="12" cy="13" r="7.5" stroke="currentColor" stroke-width="1.8" fill="none"/>
+        <!-- minute hand -->
+        <line class="tout-min-hand" x1="12" y1="13" x2="12" y2="8.5"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <!-- hour hand -->
+        <line class="tout-hr-hand" x1="12" y1="13" x2="14.5" y2="14.5"
+              stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="12" cy="13" r="1" fill="currentColor"/>
+      </g>
+      <!-- timer ring overlay -->
+      <circle class="tout-ring" cx="12" cy="13" r="9.5"
+              stroke="currentColor" stroke-width="2.5" fill="none"
+              stroke-linecap="round" opacity=".45"
+              transform="rotate(-90 12 13)"/>
+      <!-- bell top -->
+      <path d="M10 5 Q12 2 14 5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    </svg>
+  </span>`,
+
+  quarantine: `<span class="sai sai-quarantine" data-sai="quarantine">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- cage bars drop from top -->
+      <g class="quar-cage">
+        <rect x="4" y="9" width="16" height="11" rx="1.5" stroke="currentColor" stroke-width="1.7" fill="none"/>
+        <line x1="8"  y1="9" x2="8"  y2="20" stroke="currentColor" stroke-width="1.4" opacity=".7"/>
+        <line x1="12" y1="9" x2="12" y2="20" stroke="currentColor" stroke-width="1.4" opacity=".7"/>
+        <line x1="16" y1="9" x2="16" y2="20" stroke="currentColor" stroke-width="1.4" opacity=".7"/>
+        <!-- person inside cage -->
+        <circle cx="12" cy="13.5" r="2" fill="currentColor" opacity=".7"/>
+      </g>
+      <!-- padlock appears after cage drops -->
+      <g class="quar-lock">
+        <rect x="9" y="2" width="6" height="4.5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <rect x="8" y="5" width="8" height="5" rx="1" fill="currentColor" opacity=".85"/>
+        <circle cx="12" cy="7.5" r="1" fill="var(--bg)" opacity=".7"/>
+      </g>
+    </svg>
+  </span>`,
+
+  log: `<span class="sai" data-sai="log">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8L14 2z"
+            stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="14 2 14 8 20 8" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="9"  x2="8" y2="9"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </span>`,
+};
+
 const PUNISHMENTS = [
-  {val:'ban',        ic:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11m0 0H5a2 2 0 0 1-2-2V9m6 5h10a2 2 0 0 0 2-2V9m0 0H3"/></svg>', label:'แบน',        cls:'p-ban'},
-  {val:'kick',       ic:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"/></svg>', label:'เตะ',         cls:'p-kick'},
-  {val:'quarantine', ic:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>', label:'กักบริเวณ',  cls:'p-quarantine'},
-  {val:'timeout',    ic:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', label:'Timeout',    cls:'p-timeout'},
-  {val:'log',        ic:'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>', label:'Log Only',   cls:'p-log'},
+  {val:'ban',        ic: SAI_ICONS.ban,        label:'แบน',        cls:'p-ban'},
+  {val:'kick',       ic: SAI_ICONS.kick,       label:'เตะ',         cls:'p-kick'},
+  {val:'quarantine', ic: SAI_ICONS.quarantine, label:'กักบริเวณ',  cls:'p-quarantine'},
+  {val:'timeout',    ic: SAI_ICONS.timeout,    label:'Timeout',    cls:'p-timeout'},
+  {val:'log',        ic: SAI_ICONS.log,        label:'Log Only',   cls:'p-log'},
 ];
 
 function buildPunishWrap(wrapperId, currentVal) {
@@ -5849,6 +6230,35 @@ function buildPunishWrap(wrapperId, currentVal) {
          })(this)">
       <div class="punish-ic">${p.ic}</div>${p.label}
     </div>`).join('');
+}
+
+// ─── FEATURE CARD SAI ICON MAP ────────────────────────────────────
+// Maps feature keys → SAI icon type for feat-header display
+const FEAT_SAI_MAP = {
+  // Anti-Nuke features → shield
+  anti_ban: 'shield', anti_kick: 'shield', anti_ch_create: 'shield',
+  anti_ch_delete: 'shield', anti_ch_update: 'shield',
+  anti_role_create: 'shield', anti_role_delete: 'shield', anti_role_update: 'shield',
+  anti_role_give: 'shield', anti_webhook_create: 'shield', anti_webhook_delete: 'shield',
+  anti_bot_add: 'shield', anti_guild_update: 'shield', anti_vanity: 'shield',
+  anti_prune: 'shield', anti_integration: 'shield',
+  // Anti-Raid features → antiraid
+  anti_join_flood: 'antiraid', anti_account_age: 'antiraid',
+  anti_no_avatar: 'antiraid', server_lockdown: 'lockdown',
+  // Anti-Spam features → antispam
+  anti_mass_mentions: 'antispam', anti_text_spam: 'antispam',
+  anti_link_spam: 'antispam', anti_att_spam: 'antispam', anti_emoji_spam: 'antispam',
+  // Suspicious → suspicious
+  suspicious: 'suspicious',
+};
+
+function getFeatSAIIcon(key, fallbackEmoji) {
+  const saiType = FEAT_SAI_MAP[key];
+  if (saiType && SAI_FEAT_ICONS[saiType]) {
+    return SAI_FEAT_ICONS[saiType];
+  }
+  // fallback: wrap emoji in a span that looks like feat-emoji
+  return `<span style="font-size:18px;display:flex;align-items:center;justify-content:center;">${fallbackEmoji}</span>`;
 }
 
 // ─── FEATURE CARD BUILDER ─────────────────────────────────────────
@@ -5881,7 +6291,7 @@ function buildFeatureCard(key, emoji, name, desc, cfg, extraFields='') {
   return `
   <div class="feat-card ${feat.enabled?'enabled':''}" id="fcard-${key}">
     <div class="feat-header">
-      <div class="feat-emoji">${emoji}</div>
+      <div class="feat-emoji">${getFeatSAIIcon(key, emoji)}</div>
       <div class="feat-label">
         <div class="feat-name">${name}</div>
         <div class="feat-desc">${desc}</div>
@@ -8258,6 +8668,211 @@ async function loadWeeklyReport() {
   if (getToken()) showApp();
   // Init Lucide icons
   if (window.lucide) lucide.createIcons();
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  SAI — Security Action Icon Animation Controller v1.0
+//  Handles: idle (CSS), hover (CSS), click (JS trigger + auto-return)
+//  Supports: touch devices, MutationObserver for dynamic DOM
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Feature-header SAI icons (used in buildFeatureCard emoji slot) ──
+const SAI_FEAT_ICONS = {
+  // Shield Protection (Anti-Nuke category visual)
+  shield: `<span class="sai sai-shield" data-sai="shield" style="width:20px;height:20px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- pulse rings -->
+      <circle class="sh-pulse"  cx="12" cy="12" r="9"  stroke="currentColor" stroke-width="1.2" opacity=".5" fill="none"/>
+      <circle class="sh-pulse2" cx="12" cy="12" r="11" stroke="currentColor" stroke-width=".8" opacity=".3" fill="none"/>
+      <!-- click ring burst -->
+      <circle class="sh-ring" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" opacity="0" fill="none"/>
+      <!-- shield body -->
+      <path class="sh-body" d="M12 2l8 3v5c0 5-3.5 9-8 10C7.5 19 4 15 4 10V5l8-3z"
+            stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- check mark (appears on click) -->
+      <polyline class="sh-check" points="8.5 12 11 14.5 15.5 9.5"
+                stroke="currentColor" stroke-width="2" fill="none"
+                stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+    </svg>
+  </span>`,
+
+  // Anti-Raid — Radar sweep
+  antiraid: `<span class="sai sai-antiraid" data-sai="antiraid" style="width:20px;height:20px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- radar circles -->
+      <circle cx="12" cy="12" r="9.5" stroke="currentColor" stroke-width="1.5" opacity=".35" fill="none"/>
+      <circle cx="12" cy="12" r="6"   stroke="currentColor" stroke-width="1.2" opacity=".25" fill="none"/>
+      <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1"   opacity=".5"  fill="none"/>
+      <!-- click expand ring -->
+      <circle class="radar-ring" cx="12" cy="12" r="9.5" stroke="currentColor" stroke-width="2" opacity="0" fill="none"/>
+      <!-- sweep arm (rotates) -->
+      <line class="radar-sweep" x1="12" y1="12" x2="12" y2="3"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".7"/>
+      <!-- sweep fill wedge (fades after sweep arm) -->
+      <path class="radar-sweep" d="M12 12 L12 3 A9.5 9.5 0 0 1 18.7 7.3 Z"
+            fill="currentColor" opacity=".08"/>
+      <!-- blip dots -->
+      <circle class="radar-blip"  cx="16" cy="9"  r="1.5" fill="currentColor"/>
+      <circle class="radar-blip2" cx="8"  cy="14" r="1.2" fill="currentColor"/>
+      <!-- alert on click -->
+      <circle class="radar-alert" cx="16" cy="9" r="2" fill="transparent"/>
+    </svg>
+  </span>`,
+
+  // Anti-Spam — Messages with X
+  antispam: `<span class="sai sai-antispam" data-sai="antispam" style="width:20px;height:20px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- message bubbles -->
+      <rect class="spam-msg1" x="3" y="4" width="13" height="7" rx="2"
+            stroke="currentColor" stroke-width="1.7" fill="none"/>
+      <line x1="6" y1="7"  x2="13" y2="7"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".6" class="spam-msg1"/>
+      <line x1="6" y1="9"  x2="11" y2="9"  stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".4" class="spam-msg1"/>
+
+      <rect class="spam-msg2" x="6" y="13" width="13" height="7" rx="2"
+            stroke="currentColor" stroke-width="1.7" fill="none" opacity=".75"/>
+      <line x1="9"  y1="16" x2="16" y2="16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".5" class="spam-msg2"/>
+      <line x1="9"  y1="18" x2="14" y2="18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".35" class="spam-msg2"/>
+
+      <!-- X cross (delete marker) -->
+      <g class="spam-cross">
+        <line x1="16" y1="4"  x2="22" y2="10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="22" y1="4"  x2="16" y2="10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </span>`,
+
+  // Suspicious Detection — Magnifier scan
+  suspicious: `<span class="sai sai-suspicious" data-sai="suspicious" style="width:20px;height:20px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- magnifier -->
+      <g class="sus-glass">
+        <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.8" fill="none"/>
+        <line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <!-- scan cross-hairs inside lens -->
+        <line x1="7.5"  y1="10.5" x2="13.5" y2="10.5" stroke="currentColor" stroke-width="1" opacity=".45" stroke-linecap="round"/>
+        <line x1="10.5" y1="7.5"  x2="10.5" y2="13.5" stroke="currentColor" stroke-width="1" opacity=".45" stroke-linecap="round"/>
+      </g>
+      <!-- alert dot (top-right) -->
+      <circle class="sus-dot" cx="19" cy="5" r="2.5" fill="#ff4757"/>
+      <!-- alert ring burst (on click) -->
+      <circle class="sus-ring" cx="19" cy="5" r="2.5" stroke="#ff4757" stroke-width="1.5" opacity="0" fill="none"/>
+    </svg>
+  </span>`,
+
+  // Lockdown icon
+  lockdown: `<span class="sai sai-lockdown" data-sai="lockdown" style="width:20px;height:20px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- door frame -->
+      <rect x="3" y="6" width="14" height="16" rx="1.5" stroke="currentColor" stroke-width="1.7" fill="none" class="ld-door"/>
+      <!-- door panel detail -->
+      <rect x="5" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.1" opacity=".4" fill="none" class="ld-door"/>
+      <!-- door knob / bolt -->
+      <circle class="ld-bolt" cx="14.5" cy="14.5" r="1.2" fill="currentColor" opacity=".7"/>
+      <!-- padlock key -->
+      <g class="ld-key">
+        <circle cx="20" cy="10" r="3" stroke="currentColor" stroke-width="1.7" fill="none"/>
+        <line x1="22.1" y1="12.1" x2="24" y2="14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <line x1="23"   y1="14"   x2="24" y2="15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </span>`,
+};
+
+// ── SAI Animation Controller ──────────────────────────────────────
+(function() {
+  'use strict';
+
+  // Duration (ms) of click animation before returning to idle
+  const CLICK_DURATION = {
+    ban:        700,
+    kick:       750,
+    timeout:    900,
+    quarantine: 1000,
+    lockdown:   850,
+    shield:     800,
+    antiraid:   700,
+    antispam:   750,
+    suspicious: 900,
+    default:    600,
+  };
+
+  // Active click timers (prevent double-fire)
+  const _clickTimers = new WeakMap();
+
+  // ── Trigger click animation ──
+  function triggerClick(el) {
+    const type = el.dataset.sai;
+    if (!type) return;
+    // Prevent rapid re-clicks while animating
+    if (_clickTimers.has(el)) return;
+
+    el.classList.add('sai-clicking');
+    el.classList.remove('sai-return');
+
+    const dur = CLICK_DURATION[type] || CLICK_DURATION.default;
+    const t = setTimeout(() => {
+      el.classList.remove('sai-clicking');
+      el.classList.add('sai-return');
+      // Remove return class after return animation finishes
+      const t2 = setTimeout(() => {
+        el.classList.remove('sai-return');
+        _clickTimers.delete(el);
+      }, 500);
+      _clickTimers.set(el, t2);
+    }, dur);
+    _clickTimers.set(el, t);
+  }
+
+  // ── Attach events to a single .sai element ──
+  function attachSAI(el) {
+    if (el.dataset.saiInit) return;
+    el.dataset.saiInit = '1';
+
+    // Click (mouse)
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerClick(el);
+    }, { passive: true });
+
+    // Touch start (mobile)
+    el.addEventListener('touchstart', (e) => {
+      triggerClick(el);
+    }, { passive: true });
+  }
+
+  // ── Attach to all .sai in a subtree ──
+  function attachAll(root) {
+    (root.querySelectorAll ? root.querySelectorAll('.sai[data-sai]') : [])
+      .forEach(attachSAI);
+    // Also check root itself
+    if (root.classList && root.classList.contains('sai') && root.dataset.sai) {
+      attachSAI(root);
+    }
+  }
+
+  // ── Init on DOM ready ──
+  function init() {
+    attachAll(document);
+    // Watch for dynamically added SAI elements (feature cards, punish-btns)
+    const mo = new MutationObserver((muts) => {
+      muts.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1) attachAll(n);
+      }));
+    });
+    mo.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // ── Expose for external use (e.g. programmatic triggers) ──
+  window.SAI = { trigger: triggerClick, attach: attachAll };
 })();
 </script>
 <button id="fab-save" onclick="saveConfig()">
