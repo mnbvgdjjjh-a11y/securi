@@ -4325,6 +4325,73 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-h
 .hidden{display:none!important;}
 .mono{font-family:'JetBrains Mono',monospace;}
 
+/* ═══ THREAT DASHBOARD ═══ */
+.threat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.threat-gauge{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:default;}
+.gauge-ring{position:relative;width:80px;height:80px;}
+.gauge-ring svg{width:80px;height:80px;transform:rotate(-90deg);}
+.gauge-bg{fill:none;stroke:var(--border2);stroke-width:7;}
+.gauge-fill{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1),stroke .4s;}
+.gauge-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--text);}
+.gauge-label{font-size:11px;font-weight:700;color:var(--muted2);text-align:center;letter-spacing:.3px;}
+.gauge-sub{font-size:10px;color:var(--muted);text-align:center;}
+.threat-level-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;}
+.tlb-label{font-size:11px;font-weight:700;color:var(--muted2);min-width:64px;letter-spacing:.4px;}
+.tlb-track{flex:1;height:6px;background:var(--border2);border-radius:4px;overflow:hidden;}
+.tlb-fill{height:100%;border-radius:4px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.tlb-val{font-size:12px;font-weight:700;min-width:30px;text-align:right;}
+.threat-live-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;animation:pulse-dot 1.6s ease-in-out infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+.threat-status-ok{color:var(--success);}
+.threat-status-warn{color:var(--warn);}
+.threat-status-danger{color:var(--danger);}
+
+/* ═══ ACTION TIMELINE ═══ */
+.timeline-wrap{display:flex;flex-direction:column;gap:0;position:relative;padding-left:28px;}
+.timeline-wrap::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:1.5px;background:linear-gradient(to bottom,var(--primary-light),var(--border));opacity:.3;border-radius:2px;}
+.tl-item{position:relative;padding:10px 0 10px 14px;animation:fadeUp .3s ease both;}
+.tl-dot{position:absolute;left:-22px;top:14px;width:10px;height:10px;border-radius:50%;border:2px solid var(--bg);box-shadow:0 0 0 1.5px currentColor;}
+.tl-dot.c-danger{color:var(--danger);background:var(--danger);}
+.tl-dot.c-warn{color:var(--warn);background:var(--warn);}
+.tl-dot.c-success{color:var(--success);background:var(--success);}
+.tl-dot.c-info{color:var(--primary-light);background:var(--primary-light);}
+.tl-dot.c-gray{color:var(--muted2);background:var(--muted2);}
+.tl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;}
+.tl-card:hover{border-color:var(--border2);background:var(--surface2);}
+.tl-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+.tl-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;}
+.tl-time{font-size:10px;color:var(--muted);margin-left:auto;}
+.tl-desc{font-size:12px;color:var(--text);line-height:1.45;}
+.tl-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.tl-filter-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.tl-filter-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;}
+.tl-filter-btn.active{background:var(--primary-glow);border-color:var(--primary-light);color:var(--primary-light);}
+.tl-empty{text-align:center;padding:40px 0;color:var(--muted);font-size:13px;}
+
+/* ═══ WEEKLY REPORT ═══ */
+.report-hero{background:linear-gradient(135deg,rgba(59,110,248,.15),rgba(168,85,247,.1));border:1px solid rgba(59,110,248,.2);border-radius:var(--r);padding:20px;margin-bottom:14px;display:flex;align-items:center;gap:16px;}
+.report-hero-ic{width:52px;height:52px;border-radius:14px;background:rgba(59,110,248,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.report-hero-text h2{font-size:16px;font-weight:800;color:var(--text);margin-bottom:3px;}
+.report-hero-text p{font-size:12px;color:var(--muted2);}
+.report-kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+.report-kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
+.report-kpi-num{font-size:28px;font-weight:800;line-height:1;margin-bottom:4px;}
+.report-kpi-label{font-size:11px;color:var(--muted2);font-weight:600;}
+.report-kpi-trend{font-size:10px;margin-top:4px;}
+.trend-up{color:var(--danger);}
+.trend-down{color:var(--success);}
+.trend-same{color:var(--muted);}
+.report-bar-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.report-bar-row:last-child{border-bottom:none;}
+.report-bar-label{font-size:12px;color:var(--text);min-width:100px;}
+.report-bar-track{flex:1;height:5px;background:var(--border2);border-radius:3px;overflow:hidden;}
+.report-bar-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);}
+.report-bar-count{font-size:12px;font-weight:700;min-width:28px;text-align:right;}
+.report-week-nav{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.report-week-nav button{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--muted2);padding:5px 10px;cursor:pointer;font-size:13px;transition:color .15s;}
+.report-week-nav button:hover{color:var(--text);}
+.report-week-label{flex:1;text-align:center;font-size:13px;font-weight:700;color:var(--text);}
+
 /* ANIMATIONS */
 @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -4793,6 +4860,9 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
     </div>
     <div class="sb-nav">
       <div class="sb-section">ภาพรวม</div>
+      <div class="nav-item" onclick="goPage('threat')"><span class="nav-ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>Threat Dashboard</div>
+      <div class="nav-item" onclick="goPage('timeline')"><span class="nav-ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="12" x2="3" y2="12"/><polyline points="11 18 17 12 11 6"/><line x1="21" y1="19" x2="21" y2="5"/></svg></span>Action Timeline</div>
+      <div class="nav-item" onclick="goPage('weeklyreport')"><span class="nav-ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Weekly Report</div>
       <div class="nav-item active" onclick="goPage('home')"><div class="nav-dot"></div><span class="nav-ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span>หน้าหลัก</div>
       <div class="nav-item" onclick="goPage('logs')"><span class="nav-ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"/><path d="M19 3H5"/><path d="M14 15H8"/><path d="M14 11H8"/></svg></span>ประวัติ Audit</div>
       <div class="sb-section"><span style="color:var(--danger);opacity:.7;">—</span> Anti-Nuke</div>
@@ -5465,8 +5535,167 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 
       </div><!-- /page-userinstall -->
 
-    </div><!-- /main-body -->
-  </div><!-- /main -->
+      <!-- ═══ THREAT DASHBOARD ═══ -->
+      <div class="page" id="page-threat">
+        <div class="sec-head"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Threat Dashboard — ภาพรวม Real-time</div>
+
+        <!-- Live Status Row -->
+        <div class="card" style="margin-bottom:12px;padding:14px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="threat-live-dot" id="td-live-dot" style="background:var(--success);"></span>
+              <span style="font-size:13px;font-weight:700;" id="td-live-label">ระบบทำงานปกติ</span>
+            </div>
+            <div style="display:flex;gap:16px;">
+              <div style="text-align:center;">
+                <div style="font-size:18px;font-weight:800;color:var(--danger);" id="td-ban-count">—</div>
+                <div style="font-size:10px;color:var(--muted);">แบนวันนี้</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:18px;font-weight:800;color:var(--warn);" id="td-kick-count">—</div>
+                <div style="font-size:10px;color:var(--muted);">เตะวันนี้</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:18px;font-weight:800;color:var(--primary-light);" id="td-event-count">—</div>
+                <div style="font-size:10px;color:var(--muted);">events ทั้งหมด</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gauge Row -->
+        <div class="threat-grid" id="td-gauge-grid">
+          <div class="threat-gauge">
+            <div class="gauge-ring">
+              <svg viewBox="0 0 80 80"><circle class="gauge-bg" cx="40" cy="40" r="32"/><circle class="gauge-fill" id="gf-nuke" cx="40" cy="40" r="32" stroke="#ff4757" stroke-dasharray="201" stroke-dashoffset="201"/></svg>
+              <div class="gauge-val" id="gv-nuke">0%</div>
+            </div>
+            <div class="gauge-label">Anti-Nuke</div>
+            <div class="gauge-sub" id="gs-nuke">0/16 เปิด</div>
+          </div>
+          <div class="threat-gauge">
+            <div class="gauge-ring">
+              <svg viewBox="0 0 80 80"><circle class="gauge-bg" cx="40" cy="40" r="32"/><circle class="gauge-fill" id="gf-raid" cx="40" cy="40" r="32" stroke="#ffa502" stroke-dasharray="201" stroke-dashoffset="201"/></svg>
+              <div class="gauge-val" id="gv-raid">0%</div>
+            </div>
+            <div class="gauge-label">Anti-Raid</div>
+            <div class="gauge-sub" id="gs-raid">0/4 เปิด</div>
+          </div>
+          <div class="threat-gauge">
+            <div class="gauge-ring">
+              <svg viewBox="0 0 80 80"><circle class="gauge-bg" cx="40" cy="40" r="32"/><circle class="gauge-fill" id="gf-spam" cx="40" cy="40" r="32" stroke="#5585ff" stroke-dasharray="201" stroke-dashoffset="201"/></svg>
+              <div class="gauge-val" id="gv-spam">0%</div>
+            </div>
+            <div class="gauge-label">Anti-Spam</div>
+            <div class="gauge-sub" id="gs-spam">0/5 เปิด</div>
+          </div>
+        </div>
+
+        <!-- Level Bars -->
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>ระดับความพร้อมรับมือ</div>
+          <div id="td-bars"></div>
+        </div>
+
+        <!-- System States -->
+        <div class="card">
+          <div class="card-title" style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>สถานะระบบพิเศษ</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="td-states">
+            <div class="trow" style="background:var(--surface2);border-radius:8px;padding:10px 12px;flex-direction:column;gap:4px;align-items:flex-start;">
+              <div style="font-size:11px;font-weight:700;color:var(--muted2);">Server Lockdown</div>
+              <span class="badge badge-gray" id="td-lockdown-badge">ปิด</span>
+            </div>
+            <div class="trow" style="background:var(--surface2);border-radius:8px;padding:10px 12px;flex-direction:column;gap:4px;align-items:flex-start;">
+              <div style="font-size:11px;font-weight:700;color:var(--muted2);">Raid Mode</div>
+              <span class="badge badge-gray" id="td-raidmode-badge">ปกติ</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ ACTION TIMELINE ═══ -->
+      <div class="page" id="page-timeline">
+        <div class="sec-head"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="12" x2="3" y2="12"/><polyline points="11 18 17 12 11 6"/><line x1="21" y1="19" x2="21" y2="5"/></svg> Action Timeline — ประวัติเหตุการณ์</div>
+        <div class="card" style="margin-bottom:12px;">
+          <div class="tl-filter-row" id="tl-filters">
+            <button class="tl-filter-btn active" onclick="tlFilter('all')">ทั้งหมด</button>
+            <button class="tl-filter-btn" onclick="tlFilter('ban')">แบน</button>
+            <button class="tl-filter-btn" onclick="tlFilter('kick')">เตะ</button>
+            <button class="tl-filter-btn" onclick="tlFilter('raid')">Raid</button>
+            <button class="tl-filter-btn" onclick="tlFilter('nuke')">Nuke</button>
+            <button class="tl-filter-btn" onclick="tlFilter('spam')">Spam</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <input class="input" type="text" id="tl-search" placeholder="ค้นหา user หรือ action..." oninput="tlSearch(this.value)" style="font-size:12px;"/>
+            <button class="btn btn-sm" onclick="loadTimeline()"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-5.2"/></svg></button>
+          </div>
+        </div>
+        <div class="timeline-wrap" id="tl-list">
+          <div class="tl-empty">⏳ กำลังโหลด...</div>
+        </div>
+        <div style="text-align:center;margin-top:16px;" id="tl-load-more-wrap">
+          <button class="btn btn-sm" id="tl-load-more" onclick="tlLoadMore()" style="display:none;">โหลดเพิ่มเติม</button>
+        </div>
+      </div>
+
+      <!-- ═══ WEEKLY REPORT ═══ -->
+      <div class="page" id="page-weeklyreport">
+        <div class="sec-head"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Weekly Report — สรุปรายสัปดาห์</div>
+
+        <!-- Week navigation -->
+        <div class="report-week-nav">
+          <button onclick="wrChangeWeek(-1)">&#8249;</button>
+          <div class="report-week-label" id="wr-week-label">สัปดาห์นี้</div>
+          <button onclick="wrChangeWeek(1)" id="wr-next-btn">&#8250;</button>
+        </div>
+
+        <!-- Hero -->
+        <div class="report-hero">
+          <div class="report-hero-ic"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div class="report-hero-text">
+            <h2 id="wr-title">สัปดาห์นี้</h2>
+            <p id="wr-subtitle">กำลังคำนวณจากประวัติ logs...</p>
+          </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="report-kpi-grid">
+          <div class="report-kpi">
+            <div class="report-kpi-num" style="color:var(--danger);" id="wr-bans">—</div>
+            <div class="report-kpi-label">แบนทั้งหมด</div>
+            <div class="report-kpi-trend" id="wr-bans-trend"></div>
+          </div>
+          <div class="report-kpi">
+            <div class="report-kpi-num" style="color:var(--warn);" id="wr-kicks">—</div>
+            <div class="report-kpi-label">เตะทั้งหมด</div>
+            <div class="report-kpi-trend" id="wr-kicks-trend"></div>
+          </div>
+          <div class="report-kpi">
+            <div class="report-kpi-num" style="color:var(--primary-light);" id="wr-total">—</div>
+            <div class="report-kpi-label">events ทั้งหมด</div>
+            <div class="report-kpi-trend" id="wr-total-trend"></div>
+          </div>
+          <div class="report-kpi">
+            <div class="report-kpi-num" style="color:var(--success);" id="wr-safe-pct">—</div>
+            <div class="report-kpi-label">ป้องกันได้ (%)</div>
+            <div class="report-kpi-trend" id="wr-safe-trend"></div>
+          </div>
+        </div>
+
+        <!-- Top triggered systems -->
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>ระบบที่ทำงานบ่อยที่สุด</div>
+          <div id="wr-top-systems"></div>
+        </div>
+
+        <!-- Daily chart -->
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>กิจกรรมรายวัน</div>
+          <div style="position:relative;height:140px;"><canvas id="wr-daily-chart"></canvas></div>
+        </div>
+      </div>
+
+
 
   <!-- BOTTOM NAV -->
   <nav id="bottom-nav">
@@ -6579,7 +6808,10 @@ document.addEventListener('keydown', e => {
 
 // ─── PAGE NAVIGATION ──────────────────────────────────────────────
 const PAGE_TITLES = {
-  home:          ['หน้าหลัก',           'ภาพรวมและสถานะของ Server'],
+  threat:        ['Threat Dashboard',    'ภาพรวม Real-time ของทุกระบบป้องกัน'],
+  timeline:      ['Action Timeline',     'ไทม์ไลน์เหตุการณ์ทั้งหมดที่บอททำ'],
+  weeklyreport:  ['Weekly Report',       'สรุปสถิติและการป้องกันรายสัปดาห์'],
+  home:          ['หน้าหลัก',           'ภาพรวมของ Server'],
   antinuke:      ['Anti-Nuke',           'ป้องกันการทำลายเซิร์ฟเวอร์'],
   antiraid:      ['Anti-Raid',           'สกัดกั้นการโจมตีและบัญชีอวตาร'],
   lockdown:      ['Server Lockdown',     'ล็อกทุกช่องทางในกรณีฉุกเฉิน'],
@@ -6616,6 +6848,9 @@ function goPage(id) {
   if (id === 'memberprofile') mpRenderRecent();
   if (id === 'rolemanager')   rmLoad();
   if (id === 'userinstall')   uiLoad();
+  if (id === 'threat')        loadThreatDashboard();
+  if (id === 'timeline')      loadTimeline();
+  if (id === 'weeklyreport')  loadWeeklyReport();
 }
 
 // ─── INIT BL (call !initbl equivalent via bot) ────────────────────
@@ -7551,7 +7786,303 @@ async function uiSave() {
   mo.observe(document.body || document.documentElement, {childList:true, subtree:true});
 })();
 
-// ─── FLOATING SAVE BUTTON ─────────────────────────────────────────
+// ─── THREAT DASHBOARD ─────────────────────────────────────────────
+const NUKE_KEYS_TD = ['anti_ban','anti_kick','anti_ch_create','anti_ch_delete','anti_ch_update','anti_role_create','anti_role_delete','anti_role_update','anti_role_give','anti_webhook_create','anti_webhook_delete','anti_bot_add','anti_guild_update','anti_vanity','anti_prune','anti_integration'];
+const RAID_KEYS_TD = ['anti_join_flood','anti_account_age','anti_no_avatar','server_lockdown'];
+const SPAM_KEYS_TD = ['anti_mass_mentions','anti_text_spam','anti_link_spam','anti_att_spam','anti_emoji_spam'];
+
+function tdSetGauge(fillId, valId, subId, on, total, color) {
+  const circ = 2 * Math.PI * 32; // r=32
+  const pct = total ? Math.round(on / total * 100) : 0;
+  const offset = circ - (circ * pct / 100);
+  const fill = document.getElementById(fillId);
+  const val  = document.getElementById(valId);
+  const sub  = document.getElementById(subId);
+  if (fill) { fill.style.strokeDashoffset = offset; fill.style.stroke = color; }
+  if (val)  val.textContent = pct + '%';
+  if (sub)  sub.textContent = on + '/' + total + ' เปิด';
+}
+
+function tdSetBars(cfg) {
+  const groups = [
+    { label:'Anti-Nuke',  keys: NUKE_KEYS_TD,  color:'#ff4757', total:16 },
+    { label:'Anti-Raid',  keys: RAID_KEYS_TD,  color:'#ffa502', total:4  },
+    { label:'Anti-Spam',  keys: SPAM_KEYS_TD,  color:'#5585ff', total:5  },
+  ];
+  const wrap = document.getElementById('td-bars');
+  if (!wrap) return;
+  wrap.innerHTML = groups.map(g => {
+    const on = g.keys.filter(k => (cfg[k]||{}).enabled).length;
+    const pct = Math.round(on / g.total * 100);
+    return `<div class="threat-level-bar">
+      <div class="tlb-label">${g.label}</div>
+      <div class="tlb-track"><div class="tlb-fill" style="width:${pct}%;background:${g.color};"></div></div>
+      <div class="tlb-val" style="color:${g.color};">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadThreatDashboard() {
+  if (!CFG) return;
+  const nukeOn = NUKE_KEYS_TD.filter(k => (CFG[k]||{}).enabled).length;
+  const raidOn = RAID_KEYS_TD.filter(k => (CFG[k]||{}).enabled).length;
+  const spamOn = SPAM_KEYS_TD.filter(k => (CFG[k]||{}).enabled).length;
+
+  tdSetGauge('gf-nuke', 'gv-nuke', 'gs-nuke', nukeOn, 16, '#ff4757');
+  tdSetGauge('gf-raid', 'gv-raid', 'gs-raid', raidOn, 4,  '#ffa502');
+  tdSetGauge('gf-spam', 'gv-spam', 'gs-spam', spamOn, 5,  '#5585ff');
+  tdSetBars(CFG);
+
+  // Load stats for live counts
+  try {
+    const r = await fetch(`${API_BASE}/api/stats?token=${encodeURIComponent(getToken())}`);
+    const d = await r.json();
+    const ldEl = document.getElementById('td-lockdown-badge');
+    const rmEl = document.getElementById('td-raidmode-badge');
+    if (ldEl) { ldEl.className = d.in_lockdown ? 'badge badge-red' : 'badge badge-gray'; ldEl.textContent = d.in_lockdown ? 'เปิดอยู่' : 'ปิด'; }
+    if (rmEl) { rmEl.className = d.raid_mode   ? 'badge badge-orange' : 'badge badge-gray'; rmEl.textContent = d.raid_mode ? 'กำลัง Raid!' : 'ปกติ'; }
+    const liveLabel = document.getElementById('td-live-label');
+    const liveDot   = document.getElementById('td-live-dot');
+    if (d.raid_mode || d.in_lockdown) {
+      if (liveLabel) liveLabel.textContent = d.raid_mode ? '⚠️ Raid Mode กำลังทำงาน' : '🔒 Server ถูก Lockdown';
+      if (liveDot)   liveDot.style.background = d.raid_mode ? 'var(--warn)' : 'var(--danger)';
+    } else {
+      if (liveLabel) liveLabel.textContent = 'ระบบทำงานปกติ';
+      if (liveDot)   liveDot.style.background = 'var(--success)';
+    }
+  } catch {}
+
+  // Load logs for today counts
+  try {
+    const r2 = await fetch(`${API_BASE}/api/logs?token=${encodeURIComponent(getToken())}`);
+    const logs = await r2.json();
+    if (Array.isArray(logs)) {
+      const today = new Date().toDateString();
+      const todayLogs = logs.filter(l => l.timestamp && new Date(l.timestamp).toDateString() === today);
+      const bans  = todayLogs.filter(l => (l.action||'').toLowerCase().includes('ban')).length;
+      const kicks = todayLogs.filter(l => (l.action||'').toLowerCase().includes('kick')).length;
+      const el_ban = document.getElementById('td-ban-count');
+      const el_kick = document.getElementById('td-kick-count');
+      const el_ev  = document.getElementById('td-event-count');
+      if (el_ban)  el_ban.textContent  = bans;
+      if (el_kick) el_kick.textContent = kicks;
+      if (el_ev)   el_ev.textContent   = todayLogs.length;
+    }
+  } catch {}
+}
+
+// ─── ACTION TIMELINE ──────────────────────────────────────────────
+let tlAllLogs = [];
+let tlFilterActive = 'all';
+let tlSearchQ = '';
+let tlDisplayCount = 30;
+
+const TL_ACTION_MAP = {
+  ban: { cls:'c-danger', color:'#ff4757', label:'แบน' },
+  kick: { cls:'c-warn', color:'#ffa502', label:'เตะ' },
+  member_ban: { cls:'c-danger', color:'#ff4757', label:'แบน' },
+  member_kick: { cls:'c-warn', color:'#ffa502', label:'เตะ' },
+  message_delete: { cls:'c-info', color:'#5585ff', label:'ลบข้อความ' },
+  channel_delete: { cls:'c-danger', color:'#ff4757', label:'ลบช่อง' },
+  role_delete: { cls:'c-danger', color:'#ff4757', label:'ลบยศ' },
+  role_create: { cls:'c-success', color:'#00c896', label:'สร้างยศ' },
+  channel_create: { cls:'c-success', color:'#00c896', label:'สร้างช่อง' },
+  member_update: { cls:'c-info', color:'#5585ff', label:'อัปเดตสมาชิก' },
+};
+
+function tlGetMeta(action) {
+  const a = (action||'').toLowerCase();
+  for (const [k, v] of Object.entries(TL_ACTION_MAP)) {
+    if (a.includes(k)) return v;
+  }
+  return { cls:'c-gray', color:'#5a7ba0', label: action || 'event' };
+}
+
+function tlFilterLogs(logs) {
+  return logs.filter(l => {
+    const a = (l.action||'').toLowerCase();
+    if (tlFilterActive === 'ban'  && !a.includes('ban'))  return false;
+    if (tlFilterActive === 'kick' && !a.includes('kick')) return false;
+    if (tlFilterActive === 'raid' && !a.includes('join') && !a.includes('raid')) return false;
+    if (tlFilterActive === 'nuke' && !a.includes('channel') && !a.includes('role') && !a.includes('webhook')) return false;
+    if (tlFilterActive === 'spam' && !a.includes('spam') && !a.includes('message')) return false;
+    if (tlSearchQ) {
+      const q = tlSearchQ.toLowerCase();
+      if (!String(l.user||'').toLowerCase().includes(q) && !a.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function tlRender() {
+  const wrap = document.getElementById('tl-list');
+  const more = document.getElementById('tl-load-more');
+  if (!wrap) return;
+  const filtered = tlFilterLogs(tlAllLogs);
+  const visible  = filtered.slice(0, tlDisplayCount);
+  if (!visible.length) { wrap.innerHTML = '<div class="tl-empty">ไม่พบเหตุการณ์</div>'; if(more) more.style.display='none'; return; }
+  wrap.innerHTML = visible.map((l, i) => {
+    const meta = tlGetMeta(l.action);
+    const dt = l.timestamp ? new Date(l.timestamp).toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}) : '';
+    const actionLabel = meta.label || (l.action||'').replace(/_/g,' ');
+    return `<div class="tl-item" style="animation-delay:${Math.min(i*0.03,0.3)}s">
+      <div class="tl-dot ${meta.cls}"></div>
+      <div class="tl-card">
+        <div class="tl-top">
+          <span class="tl-badge" style="background:${meta.color}22;color:${meta.color};">${escHtml(actionLabel)}</span>
+          <span class="tl-time">${dt}</span>
+        </div>
+        <div class="tl-desc">${escHtml(l.user||'-')}</div>
+        <div class="tl-meta">เป้าหมาย: ${escHtml(String(l.target||'-'))}${l.reason&&l.reason!=='-'?' • '+escHtml(l.reason):''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  if (more) more.style.display = filtered.length > tlDisplayCount ? 'inline-flex' : 'none';
+}
+
+async function loadTimeline() {
+  const wrap = document.getElementById('tl-list');
+  if (wrap) wrap.innerHTML = '<div class="tl-empty"><div class="loader" style="margin:auto;"></div></div>';
+  try {
+    const r = await fetch(`${API_BASE}/api/logs?token=${encodeURIComponent(getToken())}`);
+    if (!r.ok) throw new Error();
+    tlAllLogs = await r.json();
+    tlDisplayCount = 30;
+    tlRender();
+  } catch {
+    if (wrap) wrap.innerHTML = '<div class="tl-empty">โหลดไม่ได้</div>';
+  }
+}
+
+function tlFilter(type) {
+  tlFilterActive = type;
+  tlDisplayCount = 30;
+  document.querySelectorAll('.tl-filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tl-filter-btn').forEach(b => { if (b.getAttribute('onclick') === `tlFilter('${type}')`) b.classList.add('active'); });
+  tlRender();
+}
+
+function tlSearch(q) { tlSearchQ = q; tlRender(); }
+function tlLoadMore() { tlDisplayCount += 30; tlRender(); }
+
+// ─── WEEKLY REPORT ────────────────────────────────────────────────
+let wrWeekOffset = 0;
+let wrChart = null;
+
+function wrGetWeekRange(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - day + (offset * 7));
+  startOfWeek.setHours(0,0,0,0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23,59,59,999);
+  return { start: startOfWeek, end: endOfWeek };
+}
+
+function wrFormatRange(start, end) {
+  const fmt = d => d.toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+  return fmt(start) + ' – ' + fmt(end);
+}
+
+function wrChangeWeek(dir) {
+  wrWeekOffset += dir;
+  if (wrWeekOffset > 0) wrWeekOffset = 0;
+  document.getElementById('wr-next-btn').style.opacity = wrWeekOffset === 0 ? '.3' : '1';
+  document.getElementById('wr-next-btn').disabled = wrWeekOffset === 0;
+  loadWeeklyReport();
+}
+
+async function loadWeeklyReport() {
+  const { start, end } = wrGetWeekRange(wrWeekOffset);
+  const label = document.getElementById('wr-week-label');
+  const title = document.getElementById('wr-title');
+  const sub   = document.getElementById('wr-subtitle');
+  if (label) label.textContent = wrWeekOffset === 0 ? 'สัปดาห์นี้' : wrFormatRange(start, end);
+  if (title) title.textContent = wrWeekOffset === 0 ? 'สัปดาห์นี้' : 'สัปดาห์ที่ผ่านมา';
+
+  try {
+    const r = await fetch(`${API_BASE}/api/logs?token=${encodeURIComponent(getToken())}`);
+    if (!r.ok) throw new Error();
+    const logs = await r.json();
+
+    const weekLogs = logs.filter(l => {
+      if (!l.timestamp) return false;
+      const d = new Date(l.timestamp);
+      return d >= start && d <= end;
+    });
+
+    const bans   = weekLogs.filter(l => (l.action||'').toLowerCase().includes('ban')).length;
+    const kicks  = weekLogs.filter(l => (l.action||'').toLowerCase().includes('kick')).length;
+    const total  = weekLogs.length;
+    const safePct = total > 0 ? Math.round((1 - bans/total) * 100) : 100;
+
+    const setText = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+    setText('wr-bans',   bans);
+    setText('wr-kicks',  kicks);
+    setText('wr-total',  total);
+    setText('wr-safe-pct', safePct + '%');
+    if (sub) sub.textContent = `${total} เหตุการณ์ • ${wrFormatRange(start, end)}`;
+
+    // Top systems bar chart
+    const systemCounts = {
+      'Anti-Nuke':  weekLogs.filter(l => ['channel_delete','role_delete','webhook_create','ban'].some(k => (l.action||'').toLowerCase().includes(k))).length,
+      'Anti-Raid':  weekLogs.filter(l => (l.action||'').toLowerCase().includes('join')).length,
+      'Anti-Spam':  weekLogs.filter(l => (l.action||'').toLowerCase().includes('spam') || (l.action||'').toLowerCase().includes('message')).length,
+      'Lockdown':   weekLogs.filter(l => (l.action||'').toLowerCase().includes('lock')).length,
+    };
+    const maxCount = Math.max(...Object.values(systemCounts), 1);
+    const sysColors = { 'Anti-Nuke':'#ff4757', 'Anti-Raid':'#ffa502', 'Anti-Spam':'#5585ff', 'Lockdown':'#a855f7' };
+    const topWrap = document.getElementById('wr-top-systems');
+    if (topWrap) {
+      topWrap.innerHTML = Object.entries(systemCounts)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([name, count]) => `
+          <div class="report-bar-row">
+            <div class="report-bar-label">${name}</div>
+            <div class="report-bar-track"><div class="report-bar-fill" style="width:${Math.round(count/maxCount*100)}%;background:${sysColors[name]||'#5585ff'};"></div></div>
+            <div class="report-bar-count" style="color:${sysColors[name]||'#5585ff'};">${count}</div>
+          </div>`).join('');
+    }
+
+    // Daily activity chart
+    const days = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+    const dailyCounts = Array(7).fill(0);
+    weekLogs.forEach(l => {
+      if (l.timestamp) {
+        const d = new Date(l.timestamp);
+        const idx = (d.getDay());
+        dailyCounts[idx]++;
+      }
+    });
+    const ctx = document.getElementById('wr-daily-chart');
+    if (ctx) {
+      if (wrChart) wrChart.destroy();
+      wrChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: days,
+          datasets: [{ data: dailyCounts, backgroundColor: 'rgba(85,133,255,.6)', borderRadius: 5, borderSkipped: false }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color:'#5a7ba0', font:{size:10,family:'Kanit'} }, grid:{display:false}, border:{display:false} },
+            y: { ticks: { color:'#3d5478', font:{size:10,family:'Kanit'}, maxTicksLimit:4 }, grid:{color:'rgba(30,45,69,.6)'}, border:{display:false} }
+          }
+        }
+      });
+    }
+
+  } catch {
+    const sub = document.getElementById('wr-subtitle');
+    if (sub) sub.textContent = 'โหลดข้อมูลไม่ได้';
+  }
+}
+
+
 (function() {
   // หน้าที่ควรแสดงปุ่ม save ลอย
   const SAVE_PAGES = ['home','antinuke','antiraid','antispam','general','settings','whitelist'];
